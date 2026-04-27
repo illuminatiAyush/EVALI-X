@@ -562,12 +562,12 @@ export const apiService = {
     // Let's get total_marks from tests
     const { data: testsFull } = await supabase
       .from('tests')
-      .select('id, total_marks')
+      .select('id, total_questions')
       .in('id', testIds);
       
     const testMarksMap = {};
     if (testsFull) {
-      testsFull.forEach(t => testMarksMap[t.id] = t.total_marks || 100);
+      testsFull.forEach(t => testMarksMap[t.id] = t.total_questions || 100);
     }
 
     let sumPercentage = 0;
@@ -602,12 +602,12 @@ export const apiService = {
     const testIds = results.map(r => r.test_id);
     const { data: testsFull } = await supabase
       .from('tests')
-      .select('id, total_marks')
+      .select('id, total_questions')
       .in('id', testIds);
       
     const testMarksMap = {};
     if (testsFull) {
-      testsFull.forEach(t => testMarksMap[t.id] = t.total_marks || 100);
+      testsFull.forEach(t => testMarksMap[t.id] = t.total_questions || 100);
     }
 
     let sumPercentage = 0;
