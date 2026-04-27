@@ -130,39 +130,135 @@ export const apiService = {
    * Creates a test with questions in the database.
    */
   async createTest({ title, difficulty, duration_minutes, total_marks, batch_id, content, is_ai_generated, start_time, end_time, status }) {
-    const { data, error } = await invokeWithRetry('create-test', {
-      body: { action: 'create', title, difficulty, duration_minutes, total_marks, batch_id, content, is_ai_generated, start_time, end_time, status },
-    });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Unauthorized');
 
-    if (error) throw new Error(error.message || 'Failed to create test');
-    if (!data.success) throw new Error(data.error || 'Test creation failed');
-    return data.data;
+    // 1. Insert test
+    const { data: test, error: testError } = await supabase
+      .from('tests')
+      .insert({
+        title,
+        difficulty: difficulty || 'medium',
+        duration_minutes: duration_minutes || 30,
+        total_questions: content?.questions?.length || total_marks || 0,
+        status: status || 'draft',
+        start_time: start_time || null,
+        end_time: end_time || null,
+        source_document: is_ai_generated ? { ai_generated: true } : null,
+        created_by: user.id
+      })
+      .select()
+      .single();
+
+    if (testError) throw new Error(testError.message || 'Failed to create test');
+
+    // 2. Insert questions
+    if (content?.questions && Array.isArray(content.questions)) {
+      const questionsToInsert = content.questions.map((q, i) => ({
+        test_id: test.id,
+        question: q.question || q.text || '',
+        options: q.options || [],
+        answer: q.answer || q.correct_answer || '',
+        type: q.type || 'mcq',
+        sort_order: i
+      }));
+
+      const { error: qError } = await supabase
+        .from('questions')
+        .insert(questionsToInsert);
+      
+      if (qError) console.error('Failed to insert questions:', qError);
+    }
+
+    return test;
   },
 
   /**
    * Fetches all tests for the current user.
    */
   async getMyTests() {
-    const { data, error } = await invokeWithRetry('get-tests', {
-      body: {},
-    });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Unauthorized');
 
-    if (error) throw new Error(error.message || 'Failed to fetch tests');
-    if (!data.success) throw new Error(data.error || 'Failed to fetch tests');
-    return data.data;
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (profile?.role === 'teacher') {
+      const { data, error } = await supabase
+        .from('tests')
+        .select(`
+          *,
+          test_batches ( batch_id )
+        `)
+        .eq('created_by', user.id)
+        .order('created_at', { ascending: false });
+        
+      if (error) throw new Error(error.message);
+      
+      return data.map(test => ({
+        ...test,
+        batch_ids: test.test_batches?.map(tb => tb.batch_id) || []
+      }));
+    } else {
+      // Student view - get assigned active/scheduled tests
+      const { data: batchIds } = await supabase
+        .from('student_batches')
+        .select('batch_id')
+        .eq('student_id', user.id);
+        
+      const myBatchIds = batchIds?.map(b => b.batch_id) || [];
+      if (myBatchIds.length === 0) return [];
+
+      const { data, error } = await supabase
+        .from('tests')
+        .select(`
+          *,
+          test_batches!inner ( batch_id )
+        `)
+        .in('status', ['active', 'scheduled'])
+        .in('test_batches.batch_id', myBatchIds)
+        .order('created_at', { ascending: false });
+
+      if (error) throw new Error(error.message);
+
+      return data.map(test => ({
+        ...test,
+        batch_ids: test.test_batches?.map(tb => tb.batch_id) || []
+      }));
+    }
   },
 
   /**
    * Fetches a specific test by ID.
    */
   async getTestById(id) {
-    const { data, error } = await invokeWithRetry('get-tests', {
-      body: { test_id: id },
-    });
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    const { data: test, error: testError } = await supabase
+      .from('tests')
+      .select(`
+        *,
+        test_batches ( batch_id )
+      `)
+      .eq('id', id)
+      .single();
 
-    if (error) throw new Error(error.message || 'Failed to fetch test');
-    if (!data.success) throw new Error(data.error || 'Failed to fetch test');
-    return data.data;
+    if (testError || !test) throw new Error('Test not found');
+
+    const { data: questions } = await supabase
+      .from('questions')
+      .select('*')
+      .eq('test_id', id)
+      .order('sort_order', { ascending: true });
+
+    return {
+      ...test,
+      batch_ids: test.test_batches?.map(tb => tb.batch_id) || [],
+      content: { questions: questions || [] }
+    };
   },
 
   // ─── Attempt Lifecycle ─────────────────────────────────────────
@@ -171,78 +267,243 @@ export const apiService = {
    * Starts a test attempt.
    */
   async startAttempt(testId) {
-    const { data, error } = await invokeWithRetry('start-attempt', {
-      body: { action: 'start', test_id: testId },
-    });
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) throw new Error('Unauthorized');
 
-    if (error) throw new Error(error.message || 'Failed to start attempt');
-    if (!data.success) throw new Error(data.error || 'Failed to start attempt');
-    return data.data;
+    // Get test details
+    const { data: test, error: testError } = await supabase
+      .from('tests')
+      .select('*')
+      .eq('id', testId)
+      .single();
+
+    if (testError || !test) throw new Error('Test not found');
+    if (test.status !== 'active') throw new Error('This test is not currently active');
+
+    // Check for existing attempt
+    const { data: existingAttempt } = await supabase
+      .from('attempts')
+      .select('*')
+      .eq('student_id', user.id)
+      .eq('test_id', testId)
+      .single();
+
+    if (existingAttempt) {
+      const { data: questions } = await supabase
+        .from('questions')
+        .select('id, question, options, type, sort_order')
+        .eq('test_id', testId)
+        .order('sort_order');
+
+      return {
+        attempt: existingAttempt,
+        questions: questions || [],
+        remaining_seconds: Math.max(0, Math.floor((new Date(existingAttempt.ends_at) - new Date()) / 1000))
+      };
+    }
+
+    // Create new attempt
+    const durationMs = (test.duration_minutes || 30) * 60 * 1000;
+    const endsAt = new Date(Date.now() + durationMs).toISOString();
+
+    const { data: attempt, error: attemptError } = await supabase
+      .from('attempts')
+      .insert({
+        student_id: user.id,
+        test_id: testId,
+        status: 'in_progress',
+        answers: {},
+        ends_at: endsAt
+      })
+      .select()
+      .single();
+
+    if (attemptError) {
+      console.error('Attempt creation error:', attemptError);
+      throw new Error(attemptError.message || 'Failed to start attempt');
+    }
+
+    // Get questions
+    const { data: questions } = await supabase
+      .from('questions')
+      .select('id, question, options, type, sort_order')
+      .eq('test_id', testId)
+      .order('sort_order');
+
+    return {
+      attempt,
+      questions: questions || [],
+      remaining_seconds: Math.floor(durationMs / 1000)
+    };
   },
 
   /**
    * Saves an answer.
    */
   async saveAnswer(attemptId, questionId, answerValue) {
-    const { data, error } = await invokeWithRetry('start-attempt', {
-      body: { action: 'answer', attempt_id: attemptId, question_id: questionId, answer: answerValue },
-    });
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // Get current attempt
+    const { data: attempt, error: attemptError } = await supabase
+      .from('attempts')
+      .select('answers, status, ends_at')
+      .eq('id', attemptId)
+      .eq('student_id', user.id)
+      .single();
 
-    if (error) throw new Error(error.message || 'Failed to save answer');
-    if (!data.success) throw new Error(data.error || 'Failed to save answer');
-    return data.data;
+    if (attemptError || !attempt) throw new Error('Attempt not found');
+    if (attempt.status !== 'in_progress') throw new Error('Attempt already submitted');
+    if (new Date(attempt.ends_at) < new Date()) throw new Error('Time expired');
+
+    // Update answers
+    const updatedAnswers = { ...attempt.answers, [questionId]: answerValue };
+    
+    const { data: updated, error: updateError } = await supabase
+      .from('attempts')
+      .update({ answers: updatedAnswers })
+      .eq('id', attemptId)
+      .select()
+      .single();
+
+    if (updateError) throw new Error('Failed to save answer');
+    return updated;
   },
 
   /**
    * Records a violation (e.g., tab switch).
    */
   async recordViolation(attemptId) {
-    const { data, error } = await invokeWithRetry('start-attempt', {
-      body: { action: 'violation', attempt_id: attemptId },
-    });
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (error) throw new Error(error.message || 'Failed to record violation');
-    if (!data.success) throw new Error(data.error || 'Failed to record violation');
-    return data.data;
+    const { data: attempt, error: attemptError } = await supabase
+      .from('attempts')
+      .select('answers')
+      .eq('id', attemptId)
+      .eq('student_id', user.id)
+      .single();
+
+    if (attemptError || !attempt) throw new Error('Attempt not found');
+
+    const violations = (attempt.answers?._violations || 0) + 1;
+    const updatedAnswers = { ...attempt.answers, _violations: violations };
+
+    const { data: updated, error: updateError } = await supabase
+      .from('attempts')
+      .update({ answers: updatedAnswers })
+      .eq('id', attemptId)
+      .select()
+      .single();
+
+    if (updateError) throw new Error('Failed to record violation');
+    return updated;
   },
 
   /**
    * Submits an attempt for grading.
    */
   async submitAttempt(attemptId, reason = 'completed') {
-    const { data, error } = await invokeWithRetry('submit-attempt', {
-      body: { attempt_id: attemptId, reason },
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // Set attempt to submitted
+    const { data: attempt, error: attemptError } = await supabase
+      .from('attempts')
+      .update({ status: reason === 'time_up' ? 'submitted' : reason })
+      .eq('id', attemptId)
+      .eq('student_id', user.id)
+      .select()
+      .single();
+
+    if (attemptError || !attempt) throw new Error('Failed to submit attempt');
+
+    // Get the questions for grading
+    const { data: questions } = await supabase
+      .from('questions')
+      .select('*')
+      .eq('test_id', attempt.test_id);
+
+    // Auto grade MCQs
+    let marks = 0;
+    const answers = attempt.answers || {};
+    
+    questions?.forEach(q => {
+      if (q.type === 'mcq' && answers[q.id] === q.answer) {
+        marks += 1;
+      }
     });
 
-    if (error) throw new Error(error.message || 'Failed to submit attempt');
-    if (!data.success) throw new Error(data.error || 'Failed to submit attempt');
-    return data.data;
+    // Create result
+    const { data: result, error: resultError } = await supabase
+      .from('results')
+      .insert({
+        attempt_id: attempt.id,
+        student_id: user.id,
+        test_id: attempt.test_id,
+        marks: marks,
+        answers: answers
+      })
+      .select()
+      .single();
+
+    if (resultError) {
+      console.error('Failed to create result:', resultError);
+      return { attempt, result: null };
+    }
+
+    return { attempt, result };
   },
 
   /**
    * Updates a test.
    */
   async updateTest(id, updates) {
-    const { data, error } = await invokeWithRetry('create-test', {
-      body: { action: 'update', test_id: id, ...updates },
-    });
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { data: test, error } = await supabase
+      .from('tests')
+      .update(updates)
+      .eq('id', id)
+      .eq('created_by', user.id)
+      .select()
+      .single();
 
     if (error) throw new Error(error.message || 'Failed to update test');
-    if (!data.success) throw new Error(data.error || 'Failed to update test');
-    return data.data;
+    return test;
   },
 
   /**
    * Starts or ends a test.
    */
   async setTestStatus(id, action) {
-    const { data, error } = await invokeWithRetry('create-test', {
-      body: { action, test_id: id },
-    });
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const updates = {};
+    if (action === 'start') {
+      updates.status = 'active';
+      updates.start_time = new Date().toISOString();
+    } else if (action === 'end') {
+      updates.status = 'ended';
+      updates.end_time = new Date().toISOString();
+      // Also automatically submit any active attempts
+      const { error: attemptsError } = await supabase
+        .from('attempts')
+        .update({ status: 'forced_end' })
+        .eq('test_id', id)
+        .eq('status', 'in_progress');
+      if (attemptsError) console.error('Failed to force end attempts:', attemptsError);
+    } else {
+      throw new Error('Invalid action');
+    }
+
+    const { data: test, error } = await supabase
+      .from('tests')
+      .update(updates)
+      .eq('id', id)
+      .eq('created_by', user.id)
+      .select()
+      .single();
 
     if (error) throw new Error(error.message || `Failed to ${action} test`);
-    if (!data.success) throw new Error(data.error || `Failed to ${action} test`);
-    return data.data;
+    return test;
   },
 
   /**
@@ -411,11 +672,29 @@ export const apiService = {
   },
 
   async assignTestToBatch(testId, batchIds) {
-    const { data, error } = await invokeWithRetry('assign-test-to-batch', {
-      body: { test_id: testId, batch_ids: batchIds },
-    });
-    if (error) throw new Error(error.message || 'Failed to assign test');
-    if (!data.success) throw new Error(data.error?.message || 'Failed to assign test');
-    return data.data;
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // First verify user owns the test
+    const { data: test } = await supabase
+      .from('tests')
+      .select('id')
+      .eq('id', testId)
+      .eq('created_by', user.id)
+      .single();
+      
+    if (!test) throw new Error('Test not found or unauthorized');
+
+    // Insert batch assignments
+    const mappings = batchIds.map(batchId => ({
+      test_id: testId,
+      batch_id: batchId
+    }));
+
+    const { error } = await supabase
+      .from('test_batches')
+      .insert(mappings);
+
+    if (error) throw new Error(error.message || 'Failed to assign test to batches');
+    return { success: true };
   },
 };

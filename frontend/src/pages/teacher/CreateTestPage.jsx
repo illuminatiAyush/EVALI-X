@@ -1,15 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { 
-  BrainCircuit, 
-  Sparkles, 
-  Settings2, 
-  FileText, 
-  ArrowRight, 
-  CheckCircle2, 
-  UploadCloud, 
-  X, 
+import {
+  BrainCircuit,
+  Sparkles,
+  Settings2,
+  FileText,
+  ArrowRight,
+  CheckCircle2,
+  UploadCloud,
+  X,
   File as FileIcon,
   ShieldCheck,
   Zap,
@@ -50,7 +50,7 @@ export default function CreateTestPage() {
   }, []);
 
   const handleBatchToggle = (batchId) => {
-    setSelectedBatches(prev => 
+    setSelectedBatches(prev =>
       prev.includes(batchId) ? prev.filter(id => id !== batchId) : [...prev, batchId]
     );
   };
@@ -77,7 +77,7 @@ export default function CreateTestPage() {
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDragging(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const droppedFile = e.dataTransfer.files[0];
       if (droppedFile.type === 'application/pdf') {
@@ -114,13 +114,13 @@ export default function CreateTestPage() {
     const toastId = toast.loading('Generating assessment via Groq LPU...');
     setLoading(true);
     setError('');
-    
+
     try {
       const { extractTextFromPDF } = await import('../../lib/pdfExtractor');
       const text = await extractTextFromPDF(file);
 
       const response = await apiService.generateTest(text, formData.difficulty, formData.numQuestions);
-      
+
       // Flatten AI output into a single questions array for the create-test edge function
       const aiData = response.data || {};
       const questions = [
@@ -165,14 +165,14 @@ export default function CreateTestPage() {
       {/* Processing State Overlay */}
       <AnimatePresence>
         {loading && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[100] bg-background/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center cyber-grid"
           >
             <div className="relative mb-8">
-              <motion.div 
+              <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
                 className="w-32 h-32 border-[4px] border-surface border-t-brand rounded-full shadow-cyan-glow"
@@ -181,25 +181,25 @@ export default function CreateTestPage() {
                 <BrainCircuit className="text-brand animate-pulse" size={40} />
               </div>
             </div>
-            
-            <motion.h2 
+
+            <motion.h2
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="text-4xl font-display font-extrabold tracking-tight mb-4"
             >
               Generating Assessment...
             </motion.h2>
-            
+
             <div className="max-w-md space-y-3">
               <p className="text-text-muted font-sans font-medium">
                 Our AI is reading your document and creating questions.
               </p>
               <div className="flex items-center justify-center gap-4 text-xs font-semibold text-brand uppercase tracking-wider mt-6">
-                <span className="flex items-center gap-1"><Dna size={14}/> Reading PDF</span>
+                <span className="flex items-center gap-1"><Dna size={14} /> Reading PDF</span>
                 <span className="w-1 h-1 bg-brand rounded-full"></span>
-                <span className="flex items-center gap-1"><Sparkles size={14}/> Generating</span>
+                <span className="flex items-center gap-1"><Sparkles size={14} /> Generating</span>
                 <span className="w-1 h-1 bg-brand rounded-full"></span>
-                <span className="flex items-center gap-1"><Zap size={14}/> Finalizing</span>
+                <span className="flex items-center gap-1"><Zap size={14} /> Finalizing</span>
               </div>
             </div>
           </motion.div>
@@ -207,7 +207,7 @@ export default function CreateTestPage() {
       </AnimatePresence>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-lg">
-        
+
         {/* Left Side: Form Controls */}
         <div className="lg:col-span-4 order-2 lg:order-1">
           <Card p="lg" className="sticky top-28 bg-surface">
@@ -228,11 +228,10 @@ export default function CreateTestPage() {
                       key={level}
                       type="button"
                       onClick={() => setFormData({ ...formData, difficulty: level })}
-                      className={`py-2.5 rounded-md text-sm font-semibold capitalize transition-all ${
-                        formData.difficulty === level 
-                          ? 'bg-brand/10 text-brand border border-brand/20 shadow-[0_0_10px_rgba(6,182,212,0.2)]' 
+                      className={`py-2.5 rounded-md text-sm font-semibold capitalize transition-all ${formData.difficulty === level
+                          ? 'bg-brand/10 text-brand border border-brand/20 shadow-[0_0_10px_rgba(6,182,212,0.2)]'
                           : 'text-text-muted hover:text-text hover:bg-surface'
-                      }`}
+                        }`}
                     >
                       {level}
                     </button>
@@ -246,7 +245,7 @@ export default function CreateTestPage() {
                   <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider">Number of Questions</label>
                   <span className="text-sm font-bold text-brand bg-brand/10 px-3 py-1 rounded-md">{formData.numQuestions}</span>
                 </div>
-                <input 
+                <input
                   type="range" min="5" max="30" step="5"
                   value={formData.numQuestions}
                   onChange={(e) => setFormData({ ...formData, numQuestions: e.target.value })}
@@ -272,16 +271,14 @@ export default function CreateTestPage() {
                       key={type.id}
                       type="button"
                       onClick={() => handleTypeToggle(type.id)}
-                      className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all text-left ${
-                        formData.types.includes(type.id)
+                      className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all text-left ${formData.types.includes(type.id)
                           ? 'bg-brand/10 border-brand/30 shadow-sm'
                           : 'bg-background border-border hover:border-text-muted'
-                      }`}
+                        }`}
                     >
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
-                        formData.types.includes(type.id) ? 'bg-brand text-background' : 'bg-surface text-text-muted'
-                      }`}>
-                        {type.id === 'mcq' ? <CheckCircle2 size={18}/> : <FileText size={18}/>}
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${formData.types.includes(type.id) ? 'bg-brand text-background' : 'bg-surface text-text-muted'
+                        }`}>
+                        {type.id === 'mcq' ? <CheckCircle2 size={18} /> : <FileText size={18} />}
                       </div>
                       <div>
                         <div className={`text-sm font-display font-bold ${formData.types.includes(type.id) ? 'text-brand' : 'text-text'}`}>{type.label}</div>
@@ -294,7 +291,7 @@ export default function CreateTestPage() {
 
               {/* Assign to Batches */}
               <div>
-                <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-4">Assign to Classes (Optional)</label>
+                <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-4">Assign to Classes</label>
                 <div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
                   {batches.length === 0 ? (
                     <p className="text-sm text-text-muted font-sans italic">No classes found.</p>
@@ -304,16 +301,14 @@ export default function CreateTestPage() {
                         key={batch.id}
                         type="button"
                         onClick={() => handleBatchToggle(batch.id)}
-                        className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-all text-left ${
-                          selectedBatches.includes(batch.id)
+                        className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-all text-left ${selectedBatches.includes(batch.id)
                             ? 'bg-purple-500/10 border-purple-500/30'
                             : 'bg-background border-border hover:border-text-muted'
-                        }`}
+                          }`}
                       >
-                        <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition-colors ${
-                          selectedBatches.includes(batch.id) ? 'bg-purple-500 border-purple-500 text-white' : 'border-border'
-                        }`}>
-                          {selectedBatches.includes(batch.id) && <CheckCircle2 size={12}/>}
+                        <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition-colors ${selectedBatches.includes(batch.id) ? 'bg-purple-500 border-purple-500 text-white' : 'border-border'
+                          }`}>
+                          {selectedBatches.includes(batch.id) && <CheckCircle2 size={12} />}
                         </div>
                         <span className={`text-sm font-display font-bold ${selectedBatches.includes(batch.id) ? 'text-purple-500' : 'text-text'}`}>{batch.name}</span>
                       </button>
@@ -348,21 +343,20 @@ export default function CreateTestPage() {
               </p>
             </div>
 
-            <Card 
+            <Card
               p="0"
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className={`flex-1 min-h-[400px] border-2 border-dashed transition-all flex flex-col items-center justify-center p-12 text-center group ${
-                isDragging 
-                  ? 'bg-brand/5 border-brand ring-4 ring-brand/10' 
-                  : file 
-                    ? 'bg-emerald-500/5 border-emerald-500/30' 
+              className={`flex-1 min-h-[400px] border-2 border-dashed transition-all flex flex-col items-center justify-center p-12 text-center group ${isDragging
+                  ? 'bg-brand/5 border-brand ring-4 ring-brand/10'
+                  : file
+                    ? 'bg-emerald-500/5 border-emerald-500/30'
                     : 'bg-surface border-border hover:border-text-muted hover:bg-background'
-              }`}
+                }`}
             >
               {file ? (
-                <motion.div 
+                <motion.div
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   className="space-y-6 w-full max-w-md mx-auto"
@@ -376,7 +370,7 @@ export default function CreateTestPage() {
                       <ShieldCheck size={16} /> File Validated
                     </p>
                   </div>
-                  <Button 
+                  <Button
                     onClick={() => setFile(null)}
                     variant="danger"
                     className="mt-4"
@@ -386,26 +380,25 @@ export default function CreateTestPage() {
                 </motion.div>
               ) : (
                 <>
-                  <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-8 transition-all ${
-                    isDragging ? 'bg-brand text-background scale-110 shadow-cyan-glow' : 'bg-background border border-border text-text-muted shadow-sm group-hover:text-brand'
-                  }`}>
+                  <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-8 transition-all ${isDragging ? 'bg-brand text-background scale-110 shadow-cyan-glow' : 'bg-background border border-border text-text-muted shadow-sm group-hover:text-brand'
+                    }`}>
                     <UploadCloud size={36} />
                   </div>
                   <h3 className="text-2xl font-display font-extrabold mb-3">Upload Document</h3>
                   <p className="text-text-muted font-sans mb-8 max-w-xs">
                     Drop your PDF study material here to get started.
                   </p>
-                  <Button 
+                  <Button
                     onClick={() => fileInputRef.current?.click()}
                     variant="outline"
                     className="px-xl py-4"
                   >
                     Browse Files
                   </Button>
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    className="hidden" 
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
                     accept=".pdf"
                     onChange={handleFileSelect}
                   />
@@ -415,7 +408,7 @@ export default function CreateTestPage() {
 
             <AnimatePresence>
               {error && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
@@ -432,9 +425,9 @@ export default function CreateTestPage() {
 
             <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
-                { icon: <Zap size={18}/>, title: 'Fast', desc: 'Ready in seconds' },
-                { icon: <ShieldCheck size={18}/>, title: 'Accurate', desc: 'Based on your text' },
-                { icon: <BarChart3 size={18}/>, title: 'Diverse', desc: 'Various question types' }
+                { icon: <Zap size={18} />, title: 'Fast', desc: 'Ready in seconds' },
+                { icon: <ShieldCheck size={18} />, title: 'Accurate', desc: 'Based on your text' },
+                { icon: <BarChart3 size={18} />, title: 'Diverse', desc: 'Various question types' }
               ].map((feature, i) => (
                 <div key={i} className="flex gap-4 items-center bg-surface border border-border p-4 rounded-xl">
                   <div className="w-10 h-10 shrink-0 rounded-lg bg-background flex items-center justify-center text-text-muted">

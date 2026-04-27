@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { 
+import {
   BrainCircuit, Zap, ShieldCheck, GraduationCap, ArrowRight,
   CheckCircle2, FileText, Sparkles, Sun, Moon, TerminalSquare,
-  Users, Clock, BarChart3, ChevronRight
+  Users, Clock, BarChart3, ChevronRight, Twitter, Linkedin, Instagram, Mail, ChevronDown,
+  Settings, Target
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Container from '../components/ui/Container';
@@ -12,6 +13,12 @@ import Container from '../components/ui/Container';
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
   show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } }
+};
+
+const footerLinks = {
+  Product: ['Features', 'Pricing', 'Changelog', 'Documentation'],
+  Platform: ['Student Management', 'Analytics', 'Security', 'Integrations'],
+  Company: ['About Us', 'Careers', 'Blog', 'Contact'],
 };
 
 const stagger = {
@@ -30,10 +37,25 @@ function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      className="p-2.5 rounded-lg border border-border bg-surface text-text-muted hover:text-brand hover:border-brand/40 transition-all"
+      className="relative w-9 h-9 flex items-center justify-center rounded-lg border border-border bg-surface text-text-muted hover:text-brand hover:border-brand/40 transition-colors"
       aria-label="Toggle theme"
     >
-      {dark ? <Sun size={16} /> : <Moon size={16} />}
+      <motion.div
+        initial={false}
+        animate={{ rotate: dark ? 0 : 90, scale: dark ? 1 : 0, opacity: dark ? 1 : 0 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+        className="absolute inset-0 flex items-center justify-center"
+      >
+        <Sun size={16} />
+      </motion.div>
+      <motion.div
+        initial={false}
+        animate={{ rotate: dark ? -90 : 0, scale: dark ? 0 : 1, opacity: dark ? 0 : 1 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+        className="absolute inset-0 flex items-center justify-center"
+      >
+        <Moon size={16} />
+      </motion.div>
     </button>
   );
 }
@@ -84,24 +106,168 @@ const FEATURES = [
   },
 ];
 
+const TESTIMONIALS = [
+  {
+    quote: "We spent hours coordinating schedules and manual grading. Evalix AI completely automated it.",
+    author: "Dr. Amit Desai",
+    role: "Center Director, VPPPCOE"
+  },
+  {
+    quote: "The deterministic AI evaluation eliminated all bias. Our students finally trust the assessment process.",
+    author: "Prof. Neha Sharma",
+    role: "Head of Examinations"
+  },
+  {
+    quote: "Setup literally took seconds. The telemetry and analytics give us unprecedented insights.",
+    author: "Rajiv V.",
+    role: "Senior IT Administrator"
+  }
+];
+
+const FAQS = [
+  {
+    q: "How does the AI ensure deterministic scoring?",
+    a: "Evalix AI leverages advanced LLMs to evaluate answers strictly against your predefined rubrics. This eliminates subjective bias and ensures that every student is graded on exactly the same criteria, every single time."
+  },
+  {
+    q: "Can we integrate this with our college's existing LMS?",
+    a: "Absolutely. Evalix is built on an API-first architecture, allowing seamless integration with institutional databases, learning management systems, and SSO providers."
+  },
+  {
+    q: "How secure is the assessment data?",
+    a: "We utilize Supabase Row Level Security (RLS) to ensure complete data isolation. Instructor and student workspaces are cryptographically separated, meaning no unauthorized cross-access is ever possible."
+  },
+  {
+    q: "Is it suitable for large batch deployments?",
+    a: "Yes. The underlying serverless infrastructure is designed to handle thousands of concurrent test attempts with zero lag, providing real-time telemetry back to the instructor dashboard."
+  }
+];
+
+function FAQItem({ q, a, index }) {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-50px' }}
+      transition={{ delay: index * 0.1, duration: 0.5 }}
+      className={`border-b border-border transition-colors duration-500 overflow-hidden ${isOpen ? 'bg-brand/5' : 'hover:bg-surface/50'}`}
+    >
+      <button 
+        onClick={() => setIsOpen(!isOpen)} 
+        className="w-full flex items-center justify-between py-8 px-4 md:px-8 text-left focus:outline-none group"
+      >
+        <div className="flex gap-6 items-center">
+          <span className="text-brand/40 font-mono text-sm font-bold tracking-widest">0{index + 1}</span>
+          <span className={`text-xl font-display font-medium transition-colors duration-300 ${isOpen ? 'text-brand' : 'text-text group-hover:text-brand/80'}`}>{q}</span>
+        </div>
+        <div className={`flex-shrink-0 relative w-10 h-10 rounded-full border flex items-center justify-center transition-all duration-500 ${isOpen ? 'border-brand bg-brand/10 shadow-[0_0_15px_rgba(13,148,136,0.2)]' : 'border-border bg-background group-hover:border-brand/40'}`}>
+          <div className={`absolute w-3 h-[2px] rounded-full transition-colors duration-300 ${isOpen ? 'bg-brand' : 'bg-text-muted group-hover:bg-text'}`} />
+          <div className={`absolute w-3 h-[2px] rounded-full transition-all duration-500 ${isOpen ? 'bg-brand rotate-0 opacity-0' : 'bg-text-muted rotate-90 opacity-100 group-hover:bg-text'}`} />
+        </div>
+      </button>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <div className="pb-8 px-4 md:px-8 md:pl-[5.5rem]">
+              <p className="text-text-muted text-lg leading-relaxed max-w-2xl">
+                {a}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+function TestimonialSlider() {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setIndex((prev) => (prev + 1) % TESTIMONIALS.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="relative max-w-5xl mx-auto bg-surface/40 border border-border rounded-[2rem] p-10 md:p-20 text-center overflow-hidden">
+      <div className="absolute inset-0 cyber-grid opacity-20 pointer-events-none" />
+      <div className="relative z-10">
+        <div className="text-[11px] font-bold text-text-muted uppercase tracking-widest mb-10 flex items-center justify-center gap-4">
+          <div className="w-12 h-px bg-border"></div>
+          What educators are saying
+          <div className="w-12 h-px bg-border"></div>
+        </div>
+        
+        <div className="min-h-[160px] flex items-center justify-center">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+              className="flex flex-col items-center"
+            >
+              <h3 className="text-3xl md:text-5xl font-display font-medium text-text mb-8 leading-tight max-w-4xl">
+                "{TESTIMONIALS[index].quote}"
+              </h3>
+              <div className="flex items-center gap-3 text-text font-bold text-lg">
+                <span className="w-8 h-[2px] bg-brand"></span> {TESTIMONIALS[index].author}
+              </div>
+              <div className="text-sm text-text-muted mt-1.5">{TESTIMONIALS[index].role}</div>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        <div className="mt-16 pt-8 border-t border-border/50 text-[12px] font-medium text-text-muted/60">
+          Trusted by premium coaching institutes across Mumbai
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function LandingPage() {
+  const [hoveredLetter, setHoveredLetter] = useState(null);
+
   return (
     <div className="min-h-screen bg-background text-text overflow-x-hidden">
       {/* ── NAV ── */}
       <nav className="fixed top-0 w-full z-50 border-b border-border bg-background/80 backdrop-blur-md">
         <Container className="h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-brand rounded-lg flex items-center justify-center shadow-[0_0_12px_rgba(34,211,238,0.4)]">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-brand rounded-lg flex items-center justify-center shadow-[0_0_12px_rgba(13,148,136,0.3)]">
               <BrainCircuit size={18} className="text-background" />
             </div>
-            <span className="text-lg font-display font-bold tracking-tight">Evalix</span>
-            <span className="hidden sm:block text-[10px] font-mono text-text-muted border border-border rounded px-1.5 py-0.5 ml-1">v2.0</span>
+            <div className="flex flex-col justify-center">
+              <div className="flex items-center gap-2 leading-none mb-1">
+                <span className="text-lg font-display font-bold tracking-tight">Evalix AI</span>
+                <span className="hidden sm:block text-[9px] font-mono text-text-muted border border-border rounded px-1 py-0.5 bg-surface leading-none">v2.0</span>
+              </div>
+              <span className="hidden sm:block text-[10.5px] text-text-muted font-medium leading-none">
+                Proudly built for VPPPCOE & VA, Sion
+              </span>
+            </div>
           </div>
 
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-text-muted">
-            {['#features', '#deploy'].map((href, i) => (
-              <a key={href} href={href} className="hover:text-brand transition-colors">
-                {['Architecture', 'Deploy'][i]}
+          <div className="hidden lg:flex items-center gap-8 text-sm font-medium text-text-muted">
+            {[
+              { label: 'Architecture', href: '#features' },
+              { label: 'Assessments', href: '#' },
+              { label: 'Departments', href: '#' },
+              { label: 'Analytics', href: '#' },
+              { label: 'Deploy', href: '#deploy' }
+            ].map((tab) => (
+              <a key={tab.label} href={tab.href} className="hover:text-brand transition-colors">
+                {tab.label}
               </a>
             ))}
           </div>
@@ -136,9 +302,8 @@ export default function LandingPage() {
             animate="show"
             className="flex flex-col items-center text-center max-w-5xl mx-auto"
           >
-            <motion.div variants={fadeUp} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-brand/30 bg-brand/10 text-brand text-[11px] font-mono font-bold tracking-widest uppercase mb-8">
-              <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse" />
-              Assessment Engine // Online
+            <motion.div variants={fadeUp} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-brand/30 bg-brand/10 text-brand text-xs font-semibold mb-8 shadow-[0_0_15px_rgba(13,148,136,0.15)]">
+              <Sparkles size={14} className="text-brand" /> Intelligent Assessment Platform
             </motion.div>
 
             <motion.h1 variants={fadeUp} className="text-6xl md:text-8xl font-display font-extrabold leading-[1.02] tracking-tighter mb-6">
@@ -182,7 +347,7 @@ export default function LandingPage() {
               {STATS.map((s) => (
                 <div key={s.label} className="bg-surface px-6 py-4 text-center">
                   <div className="text-2xl font-mono font-bold text-brand">{s.val}</div>
-                  <div className="text-[10px] font-mono text-text-muted uppercase tracking-widest mt-1">{s.label}</div>
+                  <div className="text-[11px] font-semibold text-text-muted mt-1">{s.label}</div>
                 </div>
               ))}
             </motion.div>
@@ -205,7 +370,7 @@ export default function LandingPage() {
                 </div>
                 <div className="flex items-center gap-2 px-3 py-1 bg-background border border-border rounded-md">
                   <TerminalSquare size={12} className="text-brand" />
-                  <span className="text-[11px] font-mono text-text-muted">evalix.core / teacher / dashboard</span>
+                  <span className="text-[12px] font-medium text-text-muted">Teacher Dashboard Overview</span>
                 </div>
                 <div className="w-20"></div>
               </div>
@@ -225,7 +390,7 @@ export default function LandingPage() {
                       <div className="w-3 h-3 rounded bg-brand/40 mr-2"></div>
                       <div className="h-2 w-16 bg-brand/60 rounded"></div>
                     </div>
-                    {[1,2].map(i => (
+                    {[1, 2].map(i => (
                       <div key={i} className="h-8 w-full rounded-md flex items-center px-3">
                         <div className="w-3 h-3 rounded bg-text-muted/30 mr-2"></div>
                         <div className="h-2 w-12 bg-border rounded"></div>
@@ -250,7 +415,7 @@ export default function LandingPage() {
 
                   {/* Stats Grid */}
                   <div className="grid grid-cols-3 gap-4">
-                    {[{ c:'text-brand bg-brand/10', v:'14', l:'Tests' }, { c:'text-purple-500 bg-purple-500/10', v:'312', l:'Attempts' }, { c:'text-emerald-500 bg-emerald-500/10', v:'87%', l:'Avg' }].map((s,i) => (
+                    {[{ c: 'text-brand bg-brand/10', v: '14', l: 'Tests' }, { c: 'text-purple-500 bg-purple-500/10', v: '312', l: 'Attempts' }, { c: 'text-emerald-500 bg-emerald-500/10', v: '87%', l: 'Avg' }].map((s, i) => (
                       <div key={i} className="bg-surface border border-border rounded-xl p-4 flex justify-between items-center">
                         <div className="flex items-center gap-3">
                           <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${s.c}`}>
@@ -307,7 +472,7 @@ export default function LandingPage() {
             viewport={{ once: true, margin: '-80px' }}
           >
             <motion.div variants={fadeUp} className="mb-16">
-              <p className="text-[11px] font-mono font-bold text-brand uppercase tracking-widest mb-4">// SYSTEM_ARCHITECTURE</p>
+              <p className="text-[13px] font-bold text-brand mb-4 flex items-center gap-1.5">Powerful Capabilities <Settings size={14} /></p>
               <h2 className="text-4xl md:text-5xl font-display font-bold">Built Different.</h2>
             </motion.div>
 
@@ -322,7 +487,7 @@ export default function LandingPage() {
                     <div className={`w-11 h-11 rounded-xl ${f.bg} border flex items-center justify-center ${f.color}`}>
                       <f.icon size={22} />
                     </div>
-                    <span className={`text-[10px] font-mono font-bold ${f.color} border ${f.bg} px-2 py-0.5 rounded tracking-widest`}>{f.tag}</span>
+                    <span className={`text-[11px] font-semibold ${f.color} border ${f.bg} px-2.5 py-1 rounded-full`}>{f.tag}</span>
                   </div>
                   <h3 className="text-xl font-display font-bold mb-3">{f.title}</h3>
                   <p className="text-text-muted leading-relaxed text-sm">{f.desc}</p>
@@ -345,7 +510,7 @@ export default function LandingPage() {
             className="grid lg:grid-cols-2 gap-16 items-center"
           >
             <div>
-              <motion.p variants={fadeUp} className="text-[11px] font-mono font-bold text-brand uppercase tracking-widest mb-4">// DEPLOYMENT_TARGETS</motion.p>
+              <motion.p variants={fadeUp} className="text-[13px] font-bold text-brand mb-4 flex items-center gap-1.5">Built for Everyone <Target size={14} /></motion.p>
               <motion.h2 variants={fadeUp} className="text-4xl md:text-5xl font-display font-bold mb-12">Who's It For?</motion.h2>
 
               <div className="space-y-10">
@@ -368,7 +533,7 @@ export default function LandingPage() {
                     variants={fadeUp}
                     className={`relative pl-8 border-l-2 border-border ${t.borderHover} transition-colors duration-300`}
                   >
-                    <span className={`text-[10px] font-mono font-bold ${t.color} uppercase tracking-widest`}>{t.label}</span>
+                    <span className={`text-[12px] font-bold ${t.color}`}>{t.label}</span>
                     <h3 className="text-2xl font-display font-bold mt-1 mb-4 flex items-center gap-2">
                       <t.icon size={22} className={t.color} /> {t.title}
                     </h3>
@@ -396,18 +561,18 @@ export default function LandingPage() {
               <div className="relative bg-surface border border-border rounded-2xl overflow-hidden shadow-[0_30px_60px_rgba(0,0,0,0.1)] dark:shadow-[0_30px_60px_rgba(0,0,0,0.3)]">
                 <div className="flex items-center gap-2 px-5 py-3 border-b border-border bg-background/60">
                   <TerminalSquare size={14} className="text-brand" />
-                  <span className="text-[11px] font-mono text-text-muted">evalix_engine ~ connected</span>
+                  <span className="text-[12px] font-medium text-text-muted">System Live Feed</span>
                   <span className="ml-auto w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
                 </div>
-                <div className="p-6 font-mono text-sm space-y-3">
+                <div className="p-6 text-[13px] space-y-3 font-medium">
                   {[
-                    { color: 'text-text-muted', text: '$ evalix init --mode instructor' },
-                    { color: 'text-brand', text: '✓ Auth pipeline connected' },
-                    { color: 'text-brand', text: '✓ Groq LPU endpoint ready' },
-                    { color: 'text-brand', text: '✓ Supabase RLS active' },
-                    { color: 'text-text-muted', text: '$ generate --topic "Data Structures" --n 25' },
-                    { color: 'text-emerald-500', text: '✓ Generated 25 MCQs in 1.4s' },
-                    { color: 'text-amber-500', text: '⚡ Test deployed to batch ALPHA-7' },
+                    { color: 'text-text-muted', text: 'Preparing instructor environment...', icon: null },
+                    { color: 'text-brand', text: 'Authentication successful!', icon: ShieldCheck },
+                    { color: 'text-brand', text: 'AI Engine ready for questions.', icon: BrainCircuit },
+                    { color: 'text-brand', text: 'Security checks passed.', icon: ShieldCheck },
+                    { color: 'text-text-muted', text: 'Generating 25 questions on Data Structures...', icon: null },
+                    { color: 'text-emerald-600 dark:text-emerald-400', text: 'Successfully generated in 1.4 seconds!', icon: CheckCircle2 },
+                    { color: 'text-amber-600 dark:text-amber-400', text: 'Test is now live for students!', icon: Zap },
                   ].map((line, i) => (
                     <motion.div
                       key={i}
@@ -415,19 +580,27 @@ export default function LandingPage() {
                       whileInView={{ opacity: 1, x: 0 }}
                       viewport={{ once: true }}
                       transition={{ delay: i * 0.12 }}
-                      className={line.color}
+                      className={`${line.color} flex items-center`}
                     >
+                      {line.icon && <line.icon size={14} className="mr-2" />}
                       {line.text}
                     </motion.div>
                   ))}
-                  <div className="flex items-center gap-1 text-text-muted">
-                    <span>$</span>
+                  <div className="flex items-center gap-2 text-text-muted mt-2">
+                    <span className="animate-pulse">Waiting for students to join...</span>
                     <span className="w-2 h-4 bg-brand animate-pulse rounded-sm" />
                   </div>
                 </div>
               </div>
             </motion.div>
           </motion.div>
+        </Container>
+      </section>
+
+      {/* ── TESTIMONIALS ── */}
+      <section className="py-24 bg-background relative">
+        <Container>
+          <TestimonialSlider />
         </Container>
       </section>
 
@@ -443,7 +616,7 @@ export default function LandingPage() {
             <div className="absolute inset-0 cyber-grid opacity-30 pointer-events-none rounded-3xl" />
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-brand/8 rounded-full blur-[80px] pointer-events-none" />
             <div className="relative z-10">
-              <p className="text-[11px] font-mono font-bold text-brand uppercase tracking-widest mb-4">// INITIATE_PROTOCOL</p>
+              <p className="text-[13px] font-bold text-brand mb-4 flex items-center justify-center gap-1.5">Get Started <Zap size={14} /></p>
               <h2 className="text-4xl md:text-6xl font-display font-extrabold mb-6 tracking-tighter">
                 Ready to Deploy?
               </h2>
@@ -461,24 +634,175 @@ export default function LandingPage() {
         </Container>
       </section>
 
-      {/* ── FOOTER ── */}
-      <footer className="py-10 border-t border-border bg-background">
-        <Container>
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 bg-brand rounded-md flex items-center justify-center shadow-[0_0_8px_rgba(34,211,238,0.3)]">
-                <BrainCircuit size={15} className="text-background" />
-              </div>
-              <span className="font-display font-bold">Evalix</span>
+      {/* ── FAQ ── */}
+      <section className="py-32 bg-background border-t border-border relative z-20 overflow-hidden">
+        {/* Decorative background glow */}
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-brand/5 rounded-full blur-[120px] pointer-events-none translate-x-1/3 -translate-y-1/3" />
+        
+        <Container className="relative">
+          <div className="grid lg:grid-cols-12 gap-16 items-start">
+            {/* Left side Sticky Header */}
+            <div className="lg:col-span-5 lg:sticky lg:top-32">
+              <motion.div variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }}>
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-border bg-surface text-text-muted text-xs font-semibold mb-8">
+                  <Settings size={14} className="text-text-muted" /> Support & Operations
+                </div>
+                <h2 className="text-5xl md:text-7xl font-display font-extrabold mb-6 leading-[1.05] tracking-tighter">
+                  Architectural <br/>
+                  <span className="text-brand">Clarity.</span>
+                </h2>
+                <p className="text-text-muted text-lg leading-relaxed mb-12 max-w-md">
+                  Everything you need to know about Evalix AI's underlying infrastructure, security protocols, and integration capabilities.
+                </p>
+                
+                <div className="flex items-center gap-5 p-6 rounded-2xl bg-surface border border-border shadow-[0_10px_30px_rgba(0,0,0,0.02)]">
+                  <div className="w-12 h-12 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand">
+                    <Mail size={20} />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-text mb-0.5">Need enterprise support?</div>
+                    <a href="mailto:support@evalix.ai" className="text-brand font-bold text-sm hover:underline underline-offset-4 transition-all">
+                      support@evalix.ai
+                    </a>
+                  </div>
+                </div>
+              </motion.div>
             </div>
-            <p className="text-text-muted text-xs font-mono uppercase tracking-widest">
-              © {new Date().getFullYear()} EVALIX · ALL SYSTEMS NOMINAL
-            </p>
-            <div className="flex items-center gap-4 text-xs font-mono text-text-muted">
-              <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                ONLINE
-              </span>
+
+            {/* Right side Accordion */}
+            <div className="lg:col-span-7 pt-8 lg:pt-0">
+              <div className="border-t border-border">
+                {FAQS.map((faq, i) => (
+                  <FAQItem key={i} index={i} q={faq.q} a={faq.a} />
+                ))}
+              </div>
+            </div>
+          </div>
+        </Container>
+      </section>
+
+      {/* ── FOOTER ── */}
+      <footer className="pt-20 pb-10 border-t border-border bg-surface relative overflow-hidden">
+        <Container>
+          {/* Top Section: Brand & Links */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-12 mb-20">
+            {/* Brand Section */}
+            <div className="md:col-span-2 space-y-6">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-brand rounded-md flex items-center justify-center shadow-[0_0_12px_rgba(34,211,238,0.3)]">
+                  <BrainCircuit size={16} className="text-background" />
+                </div>
+                <span className="text-xl font-display font-bold">EvaliX AI</span>
+              </div>
+              <p className="text-sm text-text-muted leading-relaxed max-w-sm">
+                Architecting the future of educational infrastructure. Engineering clarity for modern institutes through intelligent systems.
+              </p>
+
+              {/* Social Icons */}
+              <div className="flex gap-5 pt-2">
+                {[
+                  { icon: Twitter, label: 'Twitter' },
+                  { icon: Linkedin, label: 'LinkedIn' },
+                  { icon: Instagram, label: 'Instagram' },
+                  { icon: Mail, label: 'Email' }
+                ].map(({ icon: Icon, label }) => (
+                  <motion.a
+                    key={label}
+                    href={label === 'Email' ? 'mailto:support@evalix.ai' : '#'}
+                    whileHover={{ y: -2, opacity: 1 }}
+                    className="opacity-50 hover:text-brand transition-all text-text"
+                    aria-label={label}
+                  >
+                    <Icon size={18} strokeWidth={1.5} />
+                  </motion.a>
+                ))}
+              </div>
+            </div>
+
+            {/* Link Columns */}
+            {Object.entries(footerLinks).map(([category, links]) => (
+              <div key={category} className="space-y-5">
+                <h4 className="text-[13px] font-bold text-text mb-2">
+                  {category}
+                </h4>
+                <ul className="space-y-3">
+                  {links.map((link) => (
+                    <li key={link}>
+                      <a href="#" className="text-sm text-text-muted hover:text-brand transition-colors">
+                        {link}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+
+          {/* 🔥 GLOWING & FLOATING LETTERS EFFECT */}
+          <div className="w-full mb-16 flex justify-center items-center overflow-hidden select-none relative h-[8rem] md:h-[14rem]">
+            <div className="flex pointer-events-auto h-full items-center relative">
+
+              {/* Shimmer Overlay */}
+              <motion.div
+                animate={{ x: ['-100%', '100%'] }}
+                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                className="absolute inset-0 pointer-events-none opacity-20 bg-gradient-to-r from-transparent via-brand to-transparent skew-x-[-20deg]"
+                style={{ mixBlendMode: 'screen', zIndex: 1 }}
+              />
+
+              {"evalix\u00A0ai".split("").map((char, idx) => {
+                const isHovered = hoveredLetter === idx;
+                const isNeighbor = hoveredLetter !== null && Math.abs(hoveredLetter - idx) === 1;
+
+                return (
+                  <motion.span
+                    key={idx}
+                    onMouseEnter={() => setHoveredLetter(idx)}
+                    onMouseLeave={() => setHoveredLetter(null)}
+                    animate={{
+                      opacity: isHovered ? 1 : isNeighbor ? 0.6 : 0.3,
+                      scale: isHovered ? 1.08 : 1,
+                      textShadow: isHovered
+                        ? '0px 0px 20px rgba(13,148,136,0.6)'
+                        : '0px 0px 0px rgba(13,148,136,0)',
+                    }}
+                    transition={{
+                      duration: isHovered ? 0.25 : 0.3,
+                      ease: "easeOut"
+                    }}
+                    className="font-display font-black tracking-tighter whitespace-nowrap inline-block cursor-default relative uppercase"
+                    style={{
+                      fontSize: 'clamp(3rem, 11vw, 12rem)',
+                      lineHeight: 0.8,
+                      color: 'var(--text)',
+                      WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%)',
+                      maskImage: 'linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%)',
+                    }}
+                  >
+                    {char}
+                  </motion.span>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Bottom Bar */}
+          <div className="pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-6 relative z-10">
+            <div className="flex flex-col items-center md:items-start gap-1">
+              <p className="text-text-muted text-[11px] font-medium">
+                © {new Date().getFullYear()} Evalix AI. All rights reserved.
+              </p>
+              <p className="text-text-muted/60 text-[11px]">
+                Made by <span className="text-brand/80 font-bold">zoKer</span> · Independent Developer
+              </p>
+            </div>
+
+            <div className="flex gap-6">
+              {['Privacy Policy', 'Terms of Service', 'Security'].map((item) => (
+                <a key={item} href="#" className="text-[11px] font-medium text-text-muted hover:text-text transition-colors">
+                  {item}
+                </a>
+              ))}
             </div>
           </div>
         </Container>

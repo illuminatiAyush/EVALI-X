@@ -92,6 +92,16 @@ export default function TeacherDashboard() {
     }
   };
 
+  const handleStartTest = async (testId) => {
+    try {
+      await apiService.setTestStatus(testId, 'start');
+      toast.success('Assessment started manually. It is now active.');
+      loadDashboardData();
+    } catch (err) {
+      toast.error(err.message || 'Failed to start assessment');
+    }
+  };
+
   const handleEndTest = async (testId) => {
     toast('Force-end this assessment?', {
       description: 'All active attempts will be auto-submitted.',
@@ -215,13 +225,22 @@ export default function TeacherDashboard() {
                       </div>
                       <div className="flex items-center gap-3">
                         {test.status === 'scheduled' && (
-                          <Button 
-                            onClick={() => handleEndTest(test.id)}
-                            variant="danger"
-                            className="px-3 py-1.5 text-xs"
-                          >
-                            Terminate
-                          </Button>
+                          <>
+                            <Button 
+                              onClick={() => handleStartTest(test.id)}
+                              variant="primary"
+                              className="px-3 py-1.5 text-xs bg-emerald-500 hover:bg-emerald-600 text-white border-transparent"
+                            >
+                              Start Now
+                            </Button>
+                            <Button 
+                              onClick={() => handleEndTest(test.id)}
+                              variant="danger"
+                              className="px-3 py-1.5 text-xs"
+                            >
+                              Terminate
+                            </Button>
+                          </>
                         )}
                         {test.status === 'draft' ? (
                           <Button 

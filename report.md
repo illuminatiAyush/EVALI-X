@@ -1,4 +1,4 @@
-# Evalix AI — Comprehensive Codebase Report
+# EvaliX AI — Comprehensive Codebase Report
 
 > **Generated**: 2026-04-26  
 > **Purpose**: Full architectural breakdown for agent consumption — tech stack, features, user flows, file structure, database schema, API surface, and design system.

@@ -38,7 +38,7 @@ function AppRoutes() {
         {/* Public Routes */}
         <Route 
           path="/" 
-          element={user && isValidRole ? <Navigate to={`/${role}/dashboard`} replace /> : <LandingPage />} 
+          element={<LandingPage />} 
         />
         <Route 
           path="/login" 

@@ -243,7 +243,7 @@ export default function StudentDashboard() {
                     </div>
                     <div className="text-xs font-semibold text-text-muted flex items-center gap-1.5 uppercase">
                       <Clock size={16} />
-                      {test.duration || (test.num_questions * 2)} MIN
+                      {test.duration_minutes || (test.total_questions * 2) || 30} MIN
                     </div>
                   </div>
                   

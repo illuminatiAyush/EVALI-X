@@ -5,32 +5,32 @@
 @tailwind utilities;
 
 @layer base {
-  /* LIGHT MODE — Strong contrast, paper-like */
+  /* LIGHT MODE — Soothing, Dimmed, Warm Paper Aesthetic */
   :root {
-    --bg: #fafafa;
-    --surface: #f0f0f0;
-    --brand: #0891b2;
-    --brand-hover: #0e7490;
-    --text: #09090b;
-    --text-muted: #52525b;
-    --border: #d4d4d8;
-    --danger: #dc2626;
-    --danger-hover: #b91c1c;
-    --ring: rgba(8, 145, 178, 0.25);
+    --bg: #EAE8E3; /* Dimmed warm sand */
+    --surface: #F4F3EF; /* Soft paper */
+    --brand: #0D9488; /* Soothing Teal */
+    --brand-hover: #0F766E;
+    --text: #292826; /* Deep warm gray */
+    --text-muted: #7A756D; /* Warm muted text */
+    --border: #D6D2C9; /* Soft border */
+    --danger: #E11D48; /* Soft Rose */
+    --danger-hover: #BE123C;
+    --ring: rgba(13, 148, 136, 0.25);
   }
 
-  /* DARK MODE — Deep zinc, cyber aesthetic */
+  /* DARK MODE — Soothing Deep Midnight */
   .dark {
-    --bg: #09090b;
-    --surface: #111113;
-    --brand: #22d3ee;
-    --brand-hover: #67e8f9;
-    --text: #fafafa;
-    --text-muted: #a1a1aa;
-    --border: #27272a;
-    --danger: #f87171;
-    --danger-hover: #fca5a5;
-    --ring: rgba(34, 211, 238, 0.25);
+    --bg: #0B0E14; /* Deep midnight blue */
+    --surface: #151A24; /* Elevated midnight */
+    --brand: #2DD4BF; /* Soothing Aqua/Teal */
+    --brand-hover: #5EEAD4;
+    --text: #F8FAFC; /* Soft white */
+    --text-muted: #94A3B8; /* Slate muted */
+    --border: #1E293B; /* Slate border */
+    --danger: #FB7185; /* Soft Rose */
+    --danger-hover: #FDA4AF;
+    --ring: rgba(45, 212, 191, 0.25);
   }
 }
 
@@ -44,7 +44,13 @@ html {
 
 body {
   @apply bg-background text-text font-sans antialiased;
-  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Global Smooth Transitions */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 300ms;
 }
 
 h1, h2, h3, h4, h5, h6 {

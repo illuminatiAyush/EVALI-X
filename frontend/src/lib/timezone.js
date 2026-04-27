@@ -53,9 +53,19 @@ export function formatISTDate(date) {
  */
 export function localInputToISO(localDateTimeStr) {
   if (!localDateTimeStr) return null;
-  const d = new Date(localDateTimeStr);
-  if (isNaN(d.getTime())) return null;
-  return d.toISOString();
+  try {
+    // "YYYY-MM-DDTHH:mm" format
+    const [datePart, timePart] = localDateTimeStr.split('T');
+    const [year, month, day] = datePart.split('-');
+    const [hour, minute] = timePart.split(':');
+    
+    // new Date(year, monthIndex, day, hours, minutes) explicitly uses the local timezone
+    const d = new Date(year, month - 1, day, hour, minute);
+    if (isNaN(d.getTime())) return null;
+    return d.toISOString();
+  } catch (err) {
+    return null;
+  }
 }
 
 /**
