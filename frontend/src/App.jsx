@@ -22,14 +22,17 @@ const JoinBatchPage = lazy(() => import('./pages/student/JoinBatchPage'));
 
 // Loading Fallback Component
 const PageLoader = () => (
-  <div className="flex flex-col items-center justify-center min-h-screen bg-background">
-    <div className="w-12 h-12 border-4 border-background border-t-brand rounded-full animate-spin shadow-cyan-glow mb-4"></div>
-    <p className="text-text-muted font-sans font-medium text-sm">Loading...</p>
+  <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900">
+    <div className="w-12 h-12 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin mb-4"></div>
+    <p className="text-slate-300 font-sans font-medium text-sm animate-pulse">Initializing System...</p>
   </div>
 );
 
 function AppRoutes() {
-  const { user, role } = useAuth();
+  const { user, role, loading } = useAuth();
+  
+  if (loading) return <PageLoader />;
+
   const isValidRole = role === 'teacher' || role === 'student';
 
   return (

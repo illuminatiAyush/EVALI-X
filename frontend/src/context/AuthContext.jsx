@@ -11,32 +11,52 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     let mounted = true;
+    let failsafeTimer;
 
     // HARD SYNC: Check for session immediately on mount before anything else renders
     const initializeAuth = async () => {
-      debug.auth.info('Initializing auth session...');
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!mounted) return;
+      try {
+        debug.auth.info('Initializing auth session...');
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        
+        if (!mounted) return;
 
-      if (session?.user) {
-        setUser(session.user);
-        try {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', session.user.id)
-            .single();
-          
-          setRole(profile?.role || session.user.user_metadata?.role || 'student');
-        } catch (err) {
-          debug.auth.warn('Initial profile fetch failed', { error: err.message });
-          setRole(session.user.user_metadata?.role || 'student');
+        if (session?.user) {
+          setUser(session.user);
+          try {
+            const { data: profile, error: profileError } = await supabase
+              .from('profiles')
+              .select('role')
+              .eq('id', session.user.id)
+              .single();
+            
+            if (profileError) debug.auth.warn('Profile fetch failed', { error: profileError.message });
+            if (mounted) setRole(profile?.role || session.user.user_metadata?.role || 'student');
+          } catch (err) {
+            debug.auth.warn('Initial profile fetch failed', { error: err.message });
+            if (mounted) setRole(session.user.user_metadata?.role || 'student');
+          }
+        }
+      } catch (err) {
+        debug.auth.error('Auth Init Error:', err.message);
+      } finally {
+        clearTimeout(failsafeTimer);
+        if (mounted) {
+          debug.auth.info('Auth initialization complete.');
+          setLoading(false);
         }
       }
-      
-      setLoading(false);
     };
+
+    // FAILSAFE: If initializeAuth hangs for any reason (corrupted tokens, network),
+    // force the app to escape the loading screen after 3 seconds.
+    failsafeTimer = setTimeout(() => {
+      if (mounted) {
+        debug.auth.warn('⚠️ Auth initialization timed out after 3s. Forcing load completion.');
+        setLoading(false);
+      }
+    }, 3000);
 
     initializeAuth();
 
@@ -48,12 +68,17 @@ export const AuthProvider = ({ children }) => {
       if (session?.user) {
         setUser(session.user);
         if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', session.user.id)
-            .single();
-          setRole(profile?.role || session.user.user_metadata?.role || 'student');
+          try {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('role')
+              .eq('id', session.user.id)
+              .single();
+            if (mounted) setRole(profile?.role || session.user.user_metadata?.role || 'student');
+          } catch (err) {
+            debug.auth.warn('Profile fetch in onAuthStateChange failed', { error: err.message });
+            if (mounted) setRole(session.user.user_metadata?.role || 'student');
+          }
         }
       } else {
         setUser(null);
@@ -63,6 +88,7 @@ export const AuthProvider = ({ children }) => {
 
     return () => {
       mounted = false;
+      clearTimeout(failsafeTimer);
       subscription.unsubscribe();
     };
   }, []);
@@ -182,7 +208,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={{ user, role, loading, login, signup, logout }}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };
