@@ -45,9 +45,7 @@ export default function AuthPage() {
     const userRole = result.role || role;
     const redirectPath = userRole === 'teacher' ? '/teacher/dashboard' : '/student/dashboard';
     
-    setTimeout(() => {
-      window.location.href = redirectPath;
-    }, 100);
+    navigate(redirectPath, { replace: true });
   };
 
   return (
