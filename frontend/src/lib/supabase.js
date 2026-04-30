@@ -20,7 +20,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
  */
 const AUTH_TIMEOUT = 10000;
 
-const withTimeout = (promise, message) =>
+export const withTimeout = (promise, message) =>
   Promise.race([
     promise,
     new Promise((_, reject) =>

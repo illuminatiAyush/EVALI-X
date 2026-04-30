@@ -5,7 +5,7 @@
  * ╚══════════════════════════════════════════════════════════════════╝
  */
 
-import { supabase } from './supabase';
+import { supabase, withTimeout } from './supabase';
 import { debug } from './debug';
 
 /**
@@ -119,11 +119,12 @@ export const apiService = {
    * Calls Groq API directly from the client — no edge function dependency.
    */
   async generateTest(text, difficulty = 'medium', numQuestions = 10) {
-    const { generateTestFromText } = await import('./groqGenerator');
-    const result = await generateTestFromText(text, difficulty, numQuestions);
+    const { data, error } = await invokeWithRetry('generate-test', {
+      body: { text, difficulty, numQuestions }
+    });
 
-    if (!result.success) throw new Error(result.error || 'Generation failed');
-    return result;
+    if (error) throw new Error(error.message || 'Generation failed');
+    return { success: true, data: data.result };
   },
 
   /**
@@ -134,21 +135,24 @@ export const apiService = {
     if (!user) throw new Error('Unauthorized');
 
     // 1. Insert test
-    const { data: test, error: testError } = await supabase
-      .from('tests')
-      .insert({
-        title,
-        difficulty: difficulty || 'medium',
-        duration_minutes: duration_minutes || 30,
-        total_questions: content?.questions?.length || total_marks || 0,
-        status: status || 'draft',
-        start_time: start_time || null,
-        end_time: end_time || null,
-        source_document: is_ai_generated ? { ai_generated: true } : null,
-        created_by: user.id
-      })
-      .select()
-      .single();
+    const { data: test, error: testError } = await withTimeout(
+      supabase
+        .from('tests')
+        .insert({
+          title,
+          difficulty: difficulty || 'medium',
+          duration_minutes: duration_minutes || 30,
+          total_questions: content?.questions?.length || total_marks || 0,
+          status: status || 'draft',
+          start_time: start_time || null,
+          end_time: end_time || null,
+          source_document: is_ai_generated ? { ai_generated: true } : null,
+          created_by: user.id
+        })
+        .select()
+        .single(),
+      "Timed out creating assessment."
+    );
 
     if (testError) throw new Error(testError.message || 'Failed to create test');
 
@@ -180,21 +184,23 @@ export const apiService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Unauthorized');
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
+    const { data: profile } = await withTimeout(
+      supabase.from('profiles').select('role').eq('id', user.id).single(),
+      "Failed to verify user role."
+    );
 
     if (profile?.role === 'teacher') {
-      const { data, error } = await supabase
-        .from('tests')
-        .select(`
-          *,
-          test_batches ( batch_id )
-        `)
-        .eq('created_by', user.id)
-        .order('created_at', { ascending: false });
+      const { data, error } = await withTimeout(
+        supabase
+          .from('tests')
+          .select(`
+            *,
+            test_batches ( batch_id )
+          `)
+          .eq('created_by', user.id)
+          .order('created_at', { ascending: false }),
+        "Timed out fetching your assessments."
+      );
         
       if (error) throw new Error(error.message);
       
@@ -204,23 +210,26 @@ export const apiService = {
       }));
     } else {
       // Student view - get assigned active/scheduled tests
-      const { data: batchIds } = await supabase
-        .from('student_batches')
-        .select('batch_id')
-        .eq('student_id', user.id);
+      const { data: batchIds } = await withTimeout(
+        supabase.from('student_batches').select('batch_id').eq('student_id', user.id),
+        "Timed out fetching assigned classes."
+      );
         
       const myBatchIds = batchIds?.map(b => b.batch_id) || [];
       if (myBatchIds.length === 0) return [];
 
-      const { data, error } = await supabase
-        .from('tests')
-        .select(`
-          *,
-          test_batches!inner ( batch_id )
-        `)
-        .in('status', ['active', 'scheduled'])
-        .in('test_batches.batch_id', myBatchIds)
-        .order('created_at', { ascending: false });
+      const { data, error } = await withTimeout(
+        supabase
+          .from('tests')
+          .select(`
+            *,
+            test_batches!inner ( batch_id )
+          `)
+          .in('status', ['active', 'scheduled'])
+          .in('test_batches.batch_id', myBatchIds)
+          .order('created_at', { ascending: false }),
+        "Timed out fetching assigned tests."
+      );
 
       if (error) throw new Error(error.message);
 
@@ -237,14 +246,17 @@ export const apiService = {
   async getTestById(id) {
     const { data: { user } } = await supabase.auth.getUser();
     
-    const { data: test, error: testError } = await supabase
-      .from('tests')
-      .select(`
-        *,
-        test_batches ( batch_id )
-      `)
-      .eq('id', id)
-      .single();
+    const { data: test, error: testError } = await withTimeout(
+      supabase
+        .from('tests')
+        .select(`
+          *,
+          test_batches ( batch_id )
+        `)
+        .eq('id', id)
+        .single(),
+      "Assessment retrieval timed out."
+    );
 
     if (testError || !test) throw new Error('Test not found');
 
@@ -540,20 +552,20 @@ export const apiService = {
     if (!user) return { totalAttempts: 0, classAvg: 0 };
 
     // Get teacher's tests
-    const { data: tests } = await supabase
-      .from('tests')
-      .select('id')
-      .eq('created_by', user.id);
+    const { data: tests } = await withTimeout(
+      supabase.from('tests').select('id').eq('created_by', user.id),
+      "Dashboard stats timed out."
+    );
 
     if (!tests || tests.length === 0) return { totalAttempts: 0, classAvg: 0 };
     
     const testIds = tests.map(t => t.id);
 
     // Get all results for these tests
-    const { data: results } = await supabase
-      .from('results')
-      .select('marks, test_id')
-      .in('test_id', testIds);
+    const { data: results } = await withTimeout(
+      supabase.from('results').select('marks, test_id').in('test_id', testIds),
+      "Dashboard analytics timed out."
+    );
 
     const totalAttempts = results ? results.length : 0;
     
@@ -628,10 +640,10 @@ export const apiService = {
   async getTestAttemptCounts(testIds) {
     if (!testIds || testIds.length === 0) return {};
     
-    const { data: attempts } = await supabase
-      .from('attempts')
-      .select('test_id')
-      .in('test_id', testIds);
+    const { data: attempts } = await withTimeout(
+      supabase.from('attempts').select('test_id').in('test_id', testIds),
+      "Attempt data retrieval timed out."
+    );
       
     const counts = {};
     if (attempts) {

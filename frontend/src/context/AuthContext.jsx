@@ -12,97 +12,57 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     let mounted = true;
 
-    // Detect corrupted state
-    if (window.location.pathname.includes('/null/')) {
-      window.location.href = '/login';
-      return;
-    }
-
-    debug.auth.info('Subscribing to auth state...');
-
-    let timeoutId;
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    // HARD SYNC: Check for session immediately on mount before anything else renders
+    const initializeAuth = async () => {
+      debug.auth.info('Initializing auth session...');
+      const { data: { session } } = await supabase.auth.getSession();
+      
       if (!mounted) return;
-      debug.auth.info(`Auth event: ${event}`);
-
-      if (event === 'SIGNED_IN' && roleOverrideRef.current) {
-        debug.auth.info('Using role override from signup');
-        setUser(session?.user || null);
-        setRole(roleOverrideRef.current);
-        roleOverrideRef.current = null;
-        if (timeoutId) clearTimeout(timeoutId);
-        setLoading(false);
-        return;
-      }
 
       if (session?.user) {
         setUser(session.user);
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
+          
+          setRole(profile?.role || session.user.user_metadata?.role || 'student');
+        } catch (err) {
+          debug.auth.warn('Initial profile fetch failed', { error: err.message });
+          setRole(session.user.user_metadata?.role || 'student');
+        }
+      }
+      
+      setLoading(false);
+    };
 
-        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-          // DETACH the async fetch so we don't hold the gotrue-js lock!
-          (async () => {
-            try {
-              debug.auth.info('Fetching profile for session...');
+    initializeAuth();
 
-              const controller = new AbortController();
-              const fetchTimeout = setTimeout(() => controller.abort(), 1500);
-
-              const { data: profile, error } = await supabase
-                .from('profiles')
-                .select('role')
-                .eq('id', session.user.id)
-                .abortSignal(controller.signal)
-                .single();
-
-              clearTimeout(fetchTimeout);
-
-              if (error) debug.db.warn('Profile fetch failed', { error: error.message });
-
-              if (mounted) {
-                setRole(profile?.role || session.user.user_metadata?.role || 'student');
-              }
-            } catch (err) {
-              debug.auth.warn('Profile fetch threw or timed out', { error: err.message });
-              if (mounted) setRole(session.user.user_metadata?.role || 'student');
-            } finally {
-              if (timeoutId) clearTimeout(timeoutId);
-              if (mounted) setLoading(false);
-            }
-          })();
-        } else {
-          // Token refresh or other events
-          if (timeoutId) clearTimeout(timeoutId);
-          if (mounted) setLoading(false);
+    // EVENT LISTENER: Handle subsequent login/logout events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+      debug.auth.info(`Auth event: ${event}`);
+      
+      if (session?.user) {
+        setUser(session.user);
+        if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
+          setRole(profile?.role || session.user.user_metadata?.role || 'student');
         }
       } else {
         setUser(null);
         setRole(null);
-        if (timeoutId) clearTimeout(timeoutId);
-        if (mounted) setLoading(false);
       }
     });
 
-    // Extremely rare fallback: if Supabase fails to fire INITIAL_SESSION or hangs forever
-    timeoutId = setTimeout(() => {
-      if (mounted) {
-        debug.auth.warn('Auth flow timed out. Forcing load completion.');
-
-        // If user exists but role is somehow null due to a hang, use metadata fallback
-        setUser((prevUser) => {
-          if (prevUser) {
-            setRole(prevUser.user_metadata?.role || 'student');
-          }
-          return prevUser;
-        });
-
-        setLoading(false);
-      }
-    }, 2500);
-
     return () => {
       mounted = false;
-      clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
   }, []);

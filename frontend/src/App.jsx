@@ -46,35 +46,25 @@ function AppRoutes() {
         />
 
         {/* Teacher Routes */}
-        <Route 
-          path="/teacher" 
-          element={
-            <ProtectedRoute allowedRole="teacher">
-              <MainLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route path="dashboard" element={<TeacherDashboard />} />
-          <Route path="create-test" element={<CreateTestPage />} />
-          <Route path="test/:id" element={<TestViewerPage />} />
-          <Route path="analytics/:id" element={<TestAnalyticsPage />} />
-          <Route path="batches" element={<BatchManagementPage />} />
+        <Route element={<ProtectedRoute allowedRole="teacher" />}>
+          <Route path="/teacher" element={<MainLayout />}>
+            <Route path="dashboard" element={<TeacherDashboard />} />
+            <Route path="create-test" element={<CreateTestPage />} />
+            <Route path="test/:id" element={<TestViewerPage />} />
+            <Route path="analytics/:id" element={<TestAnalyticsPage />} />
+            <Route path="batches" element={<BatchManagementPage />} />
+          </Route>
         </Route>
 
         {/* Student Routes */}
-        <Route 
-          path="/student" 
-          element={
-            <ProtectedRoute allowedRole="student">
-              <MainLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route path="dashboard" element={<StudentDashboard />} />
-          <Route path="test/:id" element={<TestAttemptPage />} />
-          <Route path="results/:id" element={<TestResultsPage />} />
-          <Route path="history" element={<StudentHistoryPage />} />
-          <Route path="join-batch" element={<JoinBatchPage />} />
+        <Route element={<ProtectedRoute allowedRole="student" />}>
+          <Route path="/student" element={<MainLayout />}>
+            <Route path="dashboard" element={<StudentDashboard />} />
+            <Route path="test/:id" element={<TestAttemptPage />} />
+            <Route path="results/:id" element={<TestResultsPage />} />
+            <Route path="history" element={<StudentHistoryPage />} />
+            <Route path="join-batch" element={<JoinBatchPage />} />
+          </Route>
         </Route>
 
         {/* Fallback */}

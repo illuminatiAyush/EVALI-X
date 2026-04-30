@@ -50,12 +50,12 @@ export default function StudentDashboard() {
     };
   }, []);
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = async (isMounted) => {
     try {
       let available = [];
       try {
         const batchData = await apiService.getBatches();
-        if (batchData?.data) {
+        if (isMounted && batchData?.data) {
           setBatches(batchData.data);
         }
       } catch (err) {
@@ -76,11 +76,12 @@ export default function StudentDashboard() {
       } catch (err) {
         console.warn('Could not load tests:', err.message);
       }
-      setTests(available);
+      
+      if (isMounted) setTests(available);
 
       try {
         const stats = await apiService.getStudentDashboardStats();
-        setDashboardStats(stats);
+        if (isMounted) setDashboardStats(stats);
       } catch (err) {
         console.warn('Could not load stats:', err.message);
       }
@@ -92,7 +93,7 @@ export default function StudentDashboard() {
           if (results && results.length > 0) {
             results.forEach(r => map[r.test_id] = true);
           }
-          setAttemptMap(map);
+          if (isMounted) setAttemptMap(map);
         } catch (err) {
           console.warn('Could not load results:', err.message);
         }
@@ -100,7 +101,7 @@ export default function StudentDashboard() {
     } catch (err) {
       console.error('Dashboard load error:', err);
     } finally {
-      setLoading(false);
+      if (isMounted) setLoading(false);
     }
   };
 

@@ -37,41 +37,48 @@ export default function TeacherDashboard() {
   const [attemptCounts, setAttemptCounts] = useState({});
 
   useEffect(() => {
-    loadDashboardData();
+    let isMounted = true;
+    loadDashboardData(isMounted);
 
     // Set up realtime listener for new attempts and results
     const channel = supabase.channel('teacher-dashboard-updates')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attempts' }, () => {
-        toast.info('A student has started taking a test.');
-        loadDashboardData();
+        if (isMounted) {
+          toast.info('A student has started taking a test.');
+          loadDashboardData(isMounted);
+        }
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'results' }, () => {
-        toast.success('A student just submitted a test!');
-        loadDashboardData();
+        if (isMounted) {
+          toast.success('A student just submitted a test!');
+          loadDashboardData(isMounted);
+        }
       })
       .subscribe();
 
     return () => {
+      isMounted = false;
       supabase.removeChannel(channel);
     };
   }, []);
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = async (isMounted) => {
     try {
       // Load tests — may fail if get-tests edge function not deployed
       let testList = [];
       try {
         const data = await apiService.getMyTests();
-        testList = data || [];
+        if (isMounted) testList = data || [];
       } catch (err) {
         console.warn('Could not load tests:', err.message);
       }
-      setTests(testList);
+      
+      if (isMounted) setTests(testList);
 
       // Load stats — uses direct DB queries, more resilient
       try {
         const stats = await apiService.getTeacherDashboardStats();
-        setDashboardStats(stats);
+        if (isMounted) setDashboardStats(stats);
       } catch (err) {
         console.warn('Could not load stats:', err.message);
       }
@@ -80,7 +87,7 @@ export default function TeacherDashboard() {
       if (testList.length > 0) {
         try {
           const counts = await apiService.getTestAttemptCounts(testList.map(t => t.id));
-          setAttemptCounts(counts);
+          if (isMounted) setAttemptCounts(counts);
         } catch (err) {
           console.warn('Could not load attempt counts:', err.message);
         }
@@ -88,7 +95,7 @@ export default function TeacherDashboard() {
     } catch (err) {
       console.error('Dashboard load error:', err);
     } finally {
-      setLoading(false);
+      if (isMounted) setLoading(false);
     }
   };
 
