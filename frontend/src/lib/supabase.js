@@ -18,7 +18,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 /**
  * Enhanced Auth Wrapper with timeouts
  */
-const AUTH_TIMEOUT = 10000;
+const AUTH_TIMEOUT = 30000; // 30 seconds — generous for slow networks
 
 export const withTimeout = (promise, message) =>
   Promise.race([
@@ -29,11 +29,12 @@ export const withTimeout = (promise, message) =>
   ]);
 
 export const auth = {
-  signIn: (email, password) =>
-    withTimeout(
-      supabase.auth.signInWithPassword({ email, password }),
-      "Login timed out. Please check your internet connection."
-    ),
+  signIn: async (email, password) => {
+    console.log('[Evalix:AUTH] signInWithPassword called, waiting...');
+    const result = await supabase.auth.signInWithPassword({ email, password });
+    console.log('[Evalix:AUTH] signInWithPassword resolved:', result.error ? result.error.message : 'SUCCESS');
+    return result;
+  },
   signUp: (email, password, options) =>
     withTimeout(
       supabase.auth.signUp({ email, password, options }),
