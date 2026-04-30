@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, auth } from '../lib/supabase';
 import { debug } from '../lib/debug';
-
 const AuthContext = createContext({});
 
 export const AuthProvider = ({ children }) => {
@@ -39,13 +38,13 @@ export const AuthProvider = ({ children }) => {
 
       if (session?.user) {
         setUser(session.user);
-        
+
         if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'USER_UPDATED') {
           // DETACH the async fetch so we don't hold the gotrue-js lock!
           (async () => {
             try {
               debug.auth.info('Fetching profile for session...');
-              
+
               const controller = new AbortController();
               const fetchTimeout = setTimeout(() => controller.abort(), 1500);
 
@@ -55,11 +54,11 @@ export const AuthProvider = ({ children }) => {
                 .eq('id', session.user.id)
                 .abortSignal(controller.signal)
                 .single();
-                
+
               clearTimeout(fetchTimeout);
-                
+
               if (error) debug.db.warn('Profile fetch failed', { error: error.message });
-                
+
               if (mounted) {
                 setRole(profile?.role || session.user.user_metadata?.role || 'student');
               }
@@ -88,7 +87,7 @@ export const AuthProvider = ({ children }) => {
     timeoutId = setTimeout(() => {
       if (mounted) {
         debug.auth.warn('Auth flow timed out. Forcing load completion.');
-        
+
         // If user exists but role is somehow null due to a hang, use metadata fallback
         setUser((prevUser) => {
           if (prevUser) {
@@ -96,7 +95,7 @@ export const AuthProvider = ({ children }) => {
           }
           return prevUser;
         });
-        
+
         setLoading(false);
       }
     }, 2500);
@@ -111,7 +110,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     debug.auth.info('Login attempt', { email });
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await auth.signIn(email, password);
 
       if (error) {
         debug.auth.error('Login failed', { error: error.message, status: error.status });
@@ -161,11 +160,7 @@ export const AuthProvider = ({ children }) => {
       // before the signUp promise even resolves!
       roleOverrideRef.current = userRole;
 
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { role: userRole } },
-      });
+      const { data, error } = await auth.signUp(email, password, { data: { role: userRole } });
 
       if (error) {
         roleOverrideRef.current = null; // Clear on failure
@@ -193,7 +188,7 @@ export const AuthProvider = ({ children }) => {
             fix: 'RUN SQL: CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);'
           });
           // Rollback: sign out the user if their profile couldn't be created
-          await supabase.auth.signOut();
+          await auth.signOut();
           return { success: false, error: 'Database policy missing: Please run the INSERT SQL policy in Supabase to allow profile creation.' };
         } else {
           debug.db.info('Profile created successfully', { role: userRole });
@@ -215,7 +210,7 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     debug.auth.info('Logging out...');
     try {
-      await supabase.auth.signOut();
+      await auth.signOut();
       debug.auth.info('Logout successful');
     } catch (err) {
       debug.auth.warn('Logout error (non-critical)', { error: err.message });
