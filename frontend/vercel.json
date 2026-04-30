@@ -37,10 +37,6 @@
         {
             "source": "/((?!assets/|pdf.worker.min.mjs|.*\\..*).*)",
             "destination": "/index.html"
-        },
-        {
-            "source": "/(.*)",
-            "destination": "/index.html"
         }
     ]
 }
