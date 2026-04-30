@@ -29,12 +29,11 @@ export const withTimeout = (promise, message) =>
   ]);
 
 export const auth = {
-  signIn: async (email, password) => {
-    console.log('[Evalix:AUTH] signInWithPassword called, waiting...');
-    const result = await supabase.auth.signInWithPassword({ email, password });
-    console.log('[Evalix:AUTH] signInWithPassword resolved:', result.error ? result.error.message : 'SUCCESS');
-    return result;
-  },
+  signIn: (email, password) =>
+    withTimeout(
+      supabase.auth.signInWithPassword({ email, password }),
+      "Login timed out. Please check your internet connection."
+    ),
   signUp: (email, password, options) =>
     withTimeout(
       supabase.auth.signUp({ email, password, options }),
