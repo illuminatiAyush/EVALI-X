@@ -23,19 +23,32 @@ export const AuthProvider = ({ children }) => {
         if (!mounted) return;
 
         if (session?.user) {
-          setUser(session.user);
+          let resolvedRole = session.user.user_metadata?.role || 'student';
+          
           try {
-            const { data: profile, error: profileError } = await supabase
+            // Give the DB 2 seconds to fetch the profile role, otherwise fallback
+            // This ensures we resolve BEFORE the 3s failsafe triggers
+            const profilePromise = supabase
               .from('profiles')
               .select('role')
               .eq('id', session.user.id)
               .single();
+              
+            const timeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Profile fetch timeout')), 2000)
+            );
+            
+            const { data: profile, error: profileError } = await Promise.race([profilePromise, timeoutPromise]);
             
             if (profileError) debug.auth.warn('Profile fetch failed', { error: profileError.message });
-            if (mounted) setRole(profile?.role || session.user.user_metadata?.role || 'student');
+            if (profile?.role) resolvedRole = profile.role;
           } catch (err) {
-            debug.auth.warn('Initial profile fetch failed', { error: err.message });
-            if (mounted) setRole(session.user.user_metadata?.role || 'student');
+            debug.auth.warn('Initial profile fetch failed/timed out', { error: err.message });
+          }
+          
+          if (mounted) {
+            setUser(session.user);
+            setRole(resolvedRole);
           }
         }
       } catch (err) {
@@ -54,6 +67,15 @@ export const AuthProvider = ({ children }) => {
     failsafeTimer = setTimeout(() => {
       if (mounted) {
         debug.auth.warn('⚠️ Auth initialization timed out after 3s. Forcing load completion.');
+        
+        // Guarantee we NEVER have a user without a role
+        setUser((currentUser) => {
+          if (currentUser) {
+            setRole((currentRole) => currentRole || currentUser.user_metadata?.role || 'student');
+          }
+          return currentUser;
+        });
+        
         setLoading(false);
       }
     }, 3000);
@@ -66,18 +88,35 @@ export const AuthProvider = ({ children }) => {
       debug.auth.info(`Auth event: ${event}`);
       
       if (session?.user) {
-        setUser(session.user);
-        if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'INITIAL_SESSION') {
+          let resolvedRole = session.user.user_metadata?.role || 'student';
           try {
-            const { data: profile } = await supabase
+            // Wait for profile fetch with 2s timeout
+            const profilePromise = supabase
               .from('profiles')
               .select('role')
               .eq('id', session.user.id)
               .single();
-            if (mounted) setRole(profile?.role || session.user.user_metadata?.role || 'student');
+              
+            const timeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Profile fetch timeout')), 2000)
+            );
+            
+            const { data: profile } = await Promise.race([profilePromise, timeoutPromise]);
+            if (profile?.role) resolvedRole = profile.role;
           } catch (err) {
-            debug.auth.warn('Profile fetch in onAuthStateChange failed', { error: err.message });
-            if (mounted) setRole(session.user.user_metadata?.role || 'student');
+            debug.auth.warn(`Profile fetch in ${event} failed/timed out`, { error: err.message });
+          }
+          
+          if (mounted) {
+            setUser(session.user);
+            setRole(resolvedRole);
+          }
+        } else {
+          // Other events (like token refresh) where we don't need to fetch role again
+          if (mounted) {
+            setUser(session.user);
+            setRole((prev) => prev || session.user.user_metadata?.role || 'student');
           }
         }
       } else {

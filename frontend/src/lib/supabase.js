@@ -29,11 +29,16 @@ export const withTimeout = (promise, message) =>
   ]);
 
 export const auth = {
-  signIn: (email, password) =>
-    withTimeout(
-      supabase.auth.signInWithPassword({ email, password }),
-      "Login timed out. Please check your internet connection."
-    ),
+  signIn: (email, password) => {
+    // Wrap the entire flow in a timeout so we NEVER hang forever
+    const loginFlow = async () => {
+      // Clear stale/corrupted session to prevent silent refresh hangs
+      try { await supabase.auth.signOut(); } catch (_) {}
+      return supabase.auth.signInWithPassword({ email, password });
+    };
+    
+    return withTimeout(loginFlow(), "Login timed out. Please check your internet connection.");
+  },
   signUp: (email, password, options) =>
     withTimeout(
       supabase.auth.signUp({ email, password, options }),

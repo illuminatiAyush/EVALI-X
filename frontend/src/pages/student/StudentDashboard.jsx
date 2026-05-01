@@ -31,26 +31,28 @@ export default function StudentDashboard() {
   const [selectedBatchId, setSelectedBatchId] = useState(null);
 
   useEffect(() => {
-    loadDashboardData();
+    let mounted = true;
+    loadDashboardData(mounted);
 
     // Set up realtime listener for new tests
     const channel = supabase.channel('student-dashboard-tests')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'test_batches' }, () => {
         toast.info('A new test was just assigned to your batch!');
-        loadDashboardData();
+        loadDashboardData(mounted);
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tests' }, () => {
         // Also listen to tests in case it's a global test
-        loadDashboardData();
+        loadDashboardData(mounted);
       })
       .subscribe();
 
     return () => {
+      mounted = false;
       supabase.removeChannel(channel);
     };
   }, []);
 
-  const loadDashboardData = async (isMounted) => {
+  const loadDashboardData = async (isMounted = true) => {
     try {
       let available = [];
       try {

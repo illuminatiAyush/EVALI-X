@@ -116,37 +116,23 @@ export default function CreateTestPage() {
     setError('');
 
     try {
-      const { extractTextFromPDF } = await import('../../lib/pdfExtractor');
-      const text = await extractTextFromPDF(file);
+      // Direct pass to backend — no local extraction needed
+      const response = await apiService.generateTest(file, formData.difficulty, formData.numQuestions);
 
-      const response = await apiService.generateTest(text, formData.difficulty, formData.numQuestions);
-
-      // Flatten AI output into a single questions array for the create-test edge function
-      const aiData = response.data || {};
-      const questions = [
-        ...(aiData.mcqs || []).map(q => ({ ...q, type: 'mcq' })),
-        ...(aiData.shortAnswers || []).map(q => ({ ...q, type: 'short' })),
-        ...(aiData.longAnswers || []).map(q => ({ ...q, type: 'long' })),
-      ];
+      // Flatten AI output into a single questions array
+      const aiQuestions = response.data || [];
+      const questions = aiQuestions.map(q => ({ ...q, type: q.type || 'mcq' }));
 
       const test = await apiService.createTest({
         title: file.name.replace('.pdf', '') || 'AI_DIAGNOSTIC_PROTOCOL',
         difficulty: formData.difficulty,
         duration_minutes: 30,
         total_marks: questions.length,
-        batch_id: null,
+        batch_ids: selectedBatches.length > 0 ? selectedBatches : null, // Backend handles batch assignment internally now
         content: { questions },
         is_ai_generated: true,
         status: selectedBatches.length > 0 ? 'active' : 'draft',
       });
-
-      if (test?.id && selectedBatches.length > 0) {
-        try {
-          await apiService.assignTestToBatch(test.id, selectedBatches);
-        } catch (batchErr) {
-          console.error('Batch assignment failed:', batchErr);
-        }
-      }
 
       toast.success('Assessment generated successfully.', { id: toastId });
       navigate(`/teacher/test/${test.id}`);
