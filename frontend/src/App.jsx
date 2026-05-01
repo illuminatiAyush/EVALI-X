@@ -31,6 +31,8 @@ const PageLoader = () => (
 function AppRoutes() {
   const { user, role, loading } = useAuth();
   
+  // 🚨 HYDRATION BLOCK: Completely halts the router tree from evaluating URLs
+  // until Supabase finishes parsing the local storage token.
   if (loading) return <PageLoader />;
 
   const isValidRole = role === 'teacher' || role === 'student';

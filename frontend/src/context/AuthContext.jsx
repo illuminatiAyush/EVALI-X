@@ -11,50 +11,33 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     let mounted = true;
-    let failsafeTimer;
+    let authSubscription = null;
 
-    // HARD SYNC: Check for session immediately on mount before anything else renders
     const initializeAuth = async () => {
       try {
         debug.auth.info('Initializing auth session...');
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) throw sessionError;
+        // 🚨 1. Await the session directly from the robust client
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
         
         if (!mounted) return;
 
         if (session?.user) {
-          let resolvedRole = session.user.user_metadata?.role || 'student';
+          setUser(session.user);
+          // 🚨 2. Fetch role with a strict timeout to prevent hangs
+          const profilePromise = supabase.from('profiles').select('role').eq('id', session.user.id).single();
+          const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 2000));
           
           try {
-            // Give the DB 2 seconds to fetch the profile role, otherwise fallback
-            // This ensures we resolve BEFORE the 3s failsafe triggers
-            const profilePromise = supabase
-              .from('profiles')
-              .select('role')
-              .eq('id', session.user.id)
-              .single();
-              
-            const timeoutPromise = new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Profile fetch timeout')), 2000)
-            );
-            
-            const { data: profile, error: profileError } = await Promise.race([profilePromise, timeoutPromise]);
-            
-            if (profileError) debug.auth.warn('Profile fetch failed', { error: profileError.message });
-            if (profile?.role) resolvedRole = profile.role;
-          } catch (err) {
-            debug.auth.warn('Initial profile fetch failed/timed out', { error: err.message });
-          }
-          
-          if (mounted) {
-            setUser(session.user);
-            setRole(resolvedRole);
+            const { data } = await Promise.race([profilePromise, timeoutPromise]);
+            if (mounted) setRole(data?.role || session.user.user_metadata?.role || 'student');
+          } catch (e) {
+            if (mounted) setRole(session.user.user_metadata?.role || 'student');
           }
         }
-      } catch (err) {
-        debug.auth.error('Auth Init Error:', err.message);
+      } catch (error) {
+        debug.auth.error('Auth Init Error:', error.message);
       } finally {
-        clearTimeout(failsafeTimer);
         if (mounted) {
           debug.auth.info('Auth initialization complete.');
           setLoading(false);
@@ -62,73 +45,35 @@ export const AuthProvider = ({ children }) => {
       }
     };
 
-    // FAILSAFE: If initializeAuth hangs for any reason (corrupted tokens, network),
-    // force the app to escape the loading screen after 3 seconds.
-    failsafeTimer = setTimeout(() => {
-      if (mounted) {
-        debug.auth.warn('⚠️ Auth initialization timed out after 3s. Forcing load completion.');
-        
-        // Guarantee we NEVER have a user without a role
-        setUser((currentUser) => {
-          if (currentUser) {
-            setRole((currentRole) => currentRole || currentUser.user_metadata?.role || 'student');
-          }
-          return currentUser;
-        });
-        
-        setLoading(false);
-      }
-    }, 3000);
-
     initializeAuth();
 
-    // EVENT LISTENER: Handle subsequent login/logout events
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // 🚨 3. Capture the subscription securely for exact cleanup
+    const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
       debug.auth.info(`Auth event: ${event}`);
       
       if (session?.user) {
+        setUser(session.user);
         if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'INITIAL_SESSION') {
-          let resolvedRole = session.user.user_metadata?.role || 'student';
-          try {
-            // Wait for profile fetch with 2s timeout
-            const profilePromise = supabase
-              .from('profiles')
-              .select('role')
-              .eq('id', session.user.id)
-              .single();
-              
-            const timeoutPromise = new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Profile fetch timeout')), 2000)
-            );
-            
-            const { data: profile } = await Promise.race([profilePromise, timeoutPromise]);
-            if (profile?.role) resolvedRole = profile.role;
-          } catch (err) {
-            debug.auth.warn(`Profile fetch in ${event} failed/timed out`, { error: err.message });
-          }
-          
-          if (mounted) {
-            setUser(session.user);
-            setRole(resolvedRole);
-          }
+            const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
+            if (mounted) setRole(profile?.role || session.user.user_metadata?.role || 'student');
         } else {
-          // Other events (like token refresh) where we don't need to fetch role again
-          if (mounted) {
-            setUser(session.user);
-            setRole((prev) => prev || session.user.user_metadata?.role || 'student');
-          }
+            if (mounted) setRole((prev) => prev || session.user.user_metadata?.role || 'student');
         }
       } else {
         setUser(null);
         setRole(null);
       }
     });
+    
+    authSubscription = data.subscription;
 
+    // 🚨 4. Bulletproof unmount cleanup
     return () => {
       mounted = false;
-      clearTimeout(failsafeTimer);
-      subscription.unsubscribe();
+      if (authSubscription) {
+        authSubscription.unsubscribe();
+      }
     };
   }, []);
 

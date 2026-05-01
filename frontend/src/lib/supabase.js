@@ -7,13 +7,20 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('❌ CRITICAL: Supabase credentials missing!');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+// Ensure singleton pattern during Vite HMR to prevent overlapping lock requests
+export const supabase = globalThis.__SUPABASE_CLIENT__ || createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    storageKey: 'evalix-auth-token', // 🚨 Custom key forces a clean cache boundary
+    storage: window.localStorage,
   },
 });
+
+if (import.meta.env.DEV) {
+  globalThis.__SUPABASE_CLIENT__ = supabase;
+}
 
 /**
  * Enhanced Auth Wrapper with timeouts
