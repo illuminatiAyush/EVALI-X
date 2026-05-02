@@ -7,31 +7,31 @@
 @layer base {
   /* LIGHT MODE — Clean, Crisp SaaS Aesthetic */
   :root {
-    --bg: #FFFFFF; /* Pure white */
-    --surface: #F8FAFC; /* Slate 50 */
-    --brand: #0F766E; /* Deep Teal for contrast */
-    --brand-hover: #0D9488;
-    --text: #0F172A; /* Slate 900 */
-    --text-muted: #64748B; /* Slate 500 */
-    --border: #E2E8F0; /* Slate 200 */
-    --danger: #E11D48; /* Rose 600 */
-    --danger-hover: #BE123C;
-    --ring: rgba(15, 118, 110, 0.25);
-  }
+  --background: #f8fafc; /* Soothing Slate-50 */
+  --surface: #ffffff;
+  --surface-muted: #f1f5f9;
+  
+  --brand: #4f46e5; /* Deep Indigo */
+  --brand-hover: #4338ca;
+  --brand-glow: rgba(79, 70, 229, 0.15);
+  
+  --text: #0f172a; /* Slate-900 */
+  --text-muted: #64748b; /* Slate-500 */
+  --border: #e2e8f0;
+  --border-hover: #cbd5e1;
+  
+  --danger: #ef4444;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --ring: rgba(79, 70, 229, 0.2);
+}
 
-  /* DARK MODE — Deep Midnight */
-  .dark {
-    --bg: #0B0E14;
-    --surface: #151A24;
-    --brand: #2DD4BF;
-    --brand-hover: #5EEAD4;
-    --text: #F8FAFC;
-    --text-muted: #94A3B8;
-    --border: #1E293B;
-    --danger: #FB7185;
-    --danger-hover: #FDA4AF;
-    --ring: rgba(45, 212, 191, 0.25);
-  }
+.dark {
+  /* Forced Light Mode for Soothing Experience */
+  --background: #f8fafc;
+  --surface: #ffffff;
+  --text: #0f172a;
+}
 }
 
 * {

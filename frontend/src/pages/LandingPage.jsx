@@ -5,7 +5,7 @@ import {
   BrainCircuit, Zap, ShieldCheck, GraduationCap, ArrowRight,
   CheckCircle2, FileText, Sparkles, Sun, Moon, TerminalSquare,
   Users, Clock, BarChart3, ChevronRight, Twitter, Linkedin, Instagram, Mail, ChevronDown,
-  Settings, Target
+  Settings, Target, Menu, X
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Container from '../components/ui/Container';
