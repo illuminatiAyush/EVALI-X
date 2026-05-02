@@ -27,15 +27,9 @@ import App from './App.jsx'
 import './index.css'
 
 // Apply theme based on saved preference or default to light
-const savedTheme = localStorage.getItem('evalix-theme');
-
-if (savedTheme === 'dark') {
-  document.documentElement.classList.add('dark');
-} else {
-  // Default to light if no preference saved, or if saved as light
-  document.documentElement.classList.remove('dark');
-  if (!savedTheme) localStorage.setItem('evalix-theme', 'light');
-}
+// Always initialize in Light Mode as per overall UI requirements
+document.documentElement.classList.remove('dark');
+localStorage.setItem('evalix-theme', 'light');
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

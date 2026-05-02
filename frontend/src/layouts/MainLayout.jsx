@@ -1,6 +1,7 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
 import { 
   LogOut, 
   LayoutDashboard, 
@@ -13,13 +14,17 @@ import {
   ChevronRight,
   Users,
   KeyRound,
-  TerminalSquare
+  TerminalSquare,
+  Menu,
+  X,
+  User
 } from 'lucide-react';
-import Input from '../components/ui/Input';
+import Button from '../components/ui/Button';
 
 export default function MainLayout() {
   const { role, logout, user } = useAuth();
   const location = useLocation();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -31,22 +36,22 @@ export default function MainLayout() {
 
   const teacherLinks = [
     { name: 'Dashboard', path: '/teacher/dashboard', icon: LayoutDashboard },
-    { name: 'Create Test', path: '/teacher/create-test', icon: PlusCircle },
-    { name: 'Batches', path: '/teacher/batches', icon: Users },
+    { name: 'Create', path: '/teacher/create-test', icon: PlusCircle },
+    { name: 'Classes', path: '/teacher/batches', icon: Users },
   ];
 
   const studentLinks = [
     { name: 'Dashboard', path: '/student/dashboard', icon: LayoutDashboard },
-    { name: 'My Attempts', path: '/student/history', icon: BookOpen },
-    { name: 'Join Batch', path: '/student/join-batch', icon: KeyRound },
+    { name: 'History', path: '/student/history', icon: BookOpen },
+    { name: 'Join', path: '/student/join-batch', icon: KeyRound },
   ];
 
   const links = role === 'teacher' ? teacherLinks : studentLinks;
 
   return (
-    <div className="min-h-screen bg-background text-text transition-colors duration-300 flex font-sans noise-bg">
-      {/* Sidebar */}
-      <aside className="w-72 bg-surface border-r border-border hidden lg:flex flex-col sticky top-0 h-screen z-40 relative">
+    <div className="min-h-screen bg-background text-text transition-colors duration-300 flex flex-col lg:flex-row font-sans noise-bg pb-20 lg:pb-0">
+      {/* Desktop Sidebar */}
+      <aside className="w-72 bg-surface border-r border-border hidden lg:flex flex-col sticky top-0 h-screen z-40">
         <div className="absolute inset-0 cyber-grid opacity-10 pointer-events-none"></div>
         <div className="p-8 relative z-10">
           <div className="flex items-center gap-3">
@@ -104,15 +109,72 @@ export default function MainLayout() {
         </div>
       </aside>
 
+      {/* Mobile Header */}
+      <header className="lg:hidden h-16 bg-surface/80 backdrop-blur-md border-b border-border sticky top-0 z-30 px-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-brand rounded-lg flex items-center justify-center text-white">
+            <BrainCircuit size={18} />
+          </div>
+          <span className="text-lg font-display font-bold tracking-tight">Evalix</span>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <button className="p-2 text-text-muted">
+            <Bell size={20} />
+          </button>
+          <button 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-2 text-text-muted bg-background border border-border rounded-lg"
+          >
+            {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
+      </header>
+
+      {/* Mobile Dropdown Menu */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="lg:hidden fixed inset-x-0 top-16 bg-surface border-b border-border z-20 p-4 shadow-xl"
+          >
+            <div className="flex items-center gap-3 p-3 bg-background border border-border rounded-xl mb-4">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-display font-bold ${role === 'teacher' ? 'bg-purple-500/10 text-purple-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                {user?.email?.[0].toUpperCase()}
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-text">{user?.email}</p>
+                <p className="text-[10px] font-mono text-text-muted uppercase tracking-wider">{role}_OP</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button className="flex items-center gap-2 p-3 text-sm font-medium text-text-muted hover:bg-background rounded-lg border border-transparent hover:border-border transition-all">
+                <Settings size={18} />
+                <span>Settings</span>
+              </button>
+              <button 
+                onClick={handleLogout}
+                className="flex items-center gap-2 p-3 text-sm font-medium text-danger hover:bg-danger/10 rounded-lg border border-transparent hover:border-danger/20 transition-all"
+              >
+                <LogOut size={18} />
+                <span>Logout</span>
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 relative z-10">
-        <header className="h-20 bg-background/80 backdrop-blur-md border-b border-border sticky top-0 z-30 px-8 flex items-center justify-between">
+        {/* Desktop Header */}
+        <header className="hidden lg:flex h-20 bg-background/80 backdrop-blur-md border-b border-border sticky top-0 z-30 px-8 items-center justify-between">
           <div className="flex items-center gap-4 flex-1 max-w-xl">
-            {/* Search bar removed per user request */}
           </div>
 
           <div className="flex items-center gap-md">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-md bg-surface border border-border">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-surface border border-border">
               <TerminalSquare size={14} className="text-brand" />
               <span className="text-[10px] font-mono font-bold text-text-muted uppercase tracking-widest">Connected</span>
             </div>
@@ -123,9 +185,9 @@ export default function MainLayout() {
             <button className="p-2.5 text-text-muted hover:bg-surface rounded-xl transition-all border border-transparent hover:border-border">
               <Settings size={20} />
             </button>
-            <div className="h-8 w-px bg-border mx-2 hidden sm:block"></div>
+            <div className="h-8 w-px bg-border mx-2"></div>
             <div className="flex items-center gap-3 pl-2">
-              <div className="hidden sm:block text-right">
+              <div className="text-right">
                 <p className="text-sm font-display font-bold text-text leading-none mb-1">EVALIX CORE</p>
                 <p className={`text-[10px] font-mono font-bold uppercase tracking-wider ${role === 'teacher' ? 'text-purple-500' : 'text-emerald-500'}`}>
                   {role === 'teacher' ? 'Instructor Auth' : 'Candidate Auth'}
@@ -135,7 +197,7 @@ export default function MainLayout() {
           </div>
         </header>
 
-        <main className="flex-1 p-8 lg:p-10 relative">
+        <main className="flex-1 p-4 sm:p-6 lg:p-10 relative">
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -146,6 +208,32 @@ export default function MainLayout() {
           </motion.div>
         </main>
       </div>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-surface/90 backdrop-blur-lg border-t border-border px-4 h-16 flex items-center justify-around z-40">
+        {links.map((link) => {
+          const Icon = link.icon;
+          const isActive = location.pathname === link.path;
+          return (
+            <Link
+              key={link.path}
+              to={link.path}
+              className={`flex flex-col items-center justify-center gap-1 w-full h-full transition-all ${
+                isActive ? 'text-brand' : 'text-text-muted'
+              }`}
+            >
+              <Icon size={20} className={isActive ? 'animate-pulse' : ''} />
+              <span className="text-[10px] font-bold uppercase tracking-tighter">{link.name}</span>
+              {isActive && (
+                <motion.div 
+                  layoutId="activeTab"
+                  className="absolute bottom-0 w-8 h-1 bg-brand rounded-t-full"
+                />
+              )}
+            </Link>
+          );
+        })}
+      </nav>
     </div>
   );
 }

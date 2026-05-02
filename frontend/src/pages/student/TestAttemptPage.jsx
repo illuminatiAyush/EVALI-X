@@ -254,30 +254,29 @@ export default function TestAttemptPage() {
       </AnimatePresence>
 
       {/* Test Navbar */}
-      <nav className="h-20 bg-surface border-b border-border px-8 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-brand/10 text-brand border border-brand/20 rounded-lg flex items-center justify-center shadow-cyan-glow">
-            <BrainCircuit size={20} />
+      <nav className="h-16 sm:h-20 bg-surface border-b border-border px-4 sm:px-8 flex items-center justify-between sticky top-0 z-50">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-brand/10 text-brand border border-brand/20 rounded-lg flex items-center justify-center shadow-cyan-glow">
+            <BrainCircuit size={18} className="sm:size-5" />
           </div>
           <div>
-            <p className="text-xs font-semibold text-text-muted uppercase tracking-wider">Question {currentQuestion + 1} of {questions.length}</p>
+            <p className="text-[10px] sm:text-xs font-semibold text-text-muted uppercase tracking-wider">Q {currentQuestion + 1} / {questions.length}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-6">
-          <div className={`px-4 py-1.5 rounded-sm border flex items-center gap-2 font-display font-bold text-sm tracking-widest transition-colors ${
+        <div className="flex items-center gap-3 sm:gap-6">
+          <div className={`px-2 sm:px-4 py-1 sm:py-1.5 rounded-sm border flex items-center gap-1.5 sm:gap-2 font-display font-bold text-xs sm:text-sm tracking-widest transition-colors ${
             timeLeft < 60 ? 'border-danger/30 bg-danger/10 text-danger animate-pulse' : 'border-border bg-background text-text'
           }`}>
-            <Clock size={14} />
+            <Clock size={12} className="sm:size-14" />
             {formatTime(timeLeft)}
           </div>
-          <Button 
+          <button 
             onClick={() => { if(confirm('Quit assessment? Unsaved answers will be lost.')) navigate('/student/dashboard'); }}
-            variant="ghost"
-            className="hidden sm:flex p-2 text-text-muted hover:text-danger hover:bg-danger/10"
+            className="p-1.5 sm:p-2 text-text-muted hover:text-danger hover:bg-danger/10 rounded-lg transition-all"
           >
-            <XCircle size={20} />
-          </Button>
+            <XCircle size={18} className="sm:size-20" />
+          </button>
         </div>
       </nav>
 

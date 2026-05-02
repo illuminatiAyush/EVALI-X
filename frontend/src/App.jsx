@@ -22,9 +22,12 @@ const JoinBatchPage = lazy(() => import('./pages/student/JoinBatchPage'));
 
 // Loading Fallback Component
 const PageLoader = () => (
-  <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900">
-    <div className="w-12 h-12 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin mb-4"></div>
-    <p className="text-slate-300 font-sans font-medium text-sm animate-pulse">Initializing System...</p>
+  <div className="flex flex-col items-center justify-center min-h-screen bg-background relative overflow-hidden">
+    <div className="absolute inset-0 cyber-grid opacity-10 pointer-events-none"></div>
+    <div className="relative z-10 flex flex-col items-center">
+      <div className="w-14 h-14 border-4 border-slate-200 border-t-brand rounded-full animate-spin mb-6 shadow-cyan-glow"></div>
+      <p className="text-text-muted font-display font-bold text-sm tracking-widest uppercase animate-pulse">Initializing System...</p>
+    </div>
   </div>
 );
 

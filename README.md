@@ -155,6 +155,124 @@ To allow your live Vercel frontend to talk to your live Render backend:
 
 ---
 
+## 🔐 Database Schema & Security (RLS)
+
+EvaliX enforces strict data isolation. Run the following SQL in your Supabase SQL Editor to initialize the system.
+
+### 1. Tables & Core Schema
+```sql
+-- Profiles: Link to Auth.Users
+CREATE TABLE public.profiles (
+  id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
+  name TEXT,
+  role TEXT DEFAULT 'student' CHECK (role IN ('teacher', 'student')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Batches: Class groups
+CREATE TABLE public.batches (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  teacher_id UUID REFERENCES auth.users(id),
+  name TEXT NOT NULL,
+  join_code TEXT UNIQUE NOT NULL,
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Student_Batches: Many-to-Many mapping
+CREATE TABLE public.student_batches (
+  student_id UUID REFERENCES auth.users(id),
+  batch_id UUID REFERENCES public.batches(id),
+  joined_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (student_id, batch_id)
+);
+
+-- Tests: Assessment metadata
+CREATE TABLE public.tests (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_by UUID REFERENCES auth.users(id),
+  title TEXT NOT NULL,
+  difficulty TEXT DEFAULT 'medium',
+  duration_minutes INTEGER DEFAULT 30,
+  total_questions INTEGER DEFAULT 0,
+  status TEXT DEFAULT 'draft',
+  start_time TIMESTAMPTZ,
+  end_time TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Questions: Assessment items
+CREATE TABLE public.questions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  test_id UUID REFERENCES public.tests(id) ON DELETE CASCADE,
+  question TEXT NOT NULL,
+  options JSONB,
+  answer TEXT,
+  type TEXT DEFAULT 'mcq',
+  sort_order INTEGER
+);
+
+-- Attempts: Active student sessions
+CREATE TABLE public.attempts (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  student_id UUID REFERENCES auth.users(id),
+  test_id UUID REFERENCES public.tests(id),
+  status TEXT DEFAULT 'in_progress',
+  answers JSONB DEFAULT '{}',
+  ends_at TIMESTAMPTZ,
+  submitted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Results: Final scores & feedback
+CREATE TABLE public.results (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  attempt_id UUID REFERENCES public.attempts(id),
+  student_id UUID REFERENCES auth.users(id),
+  test_id UUID REFERENCES public.tests(id),
+  marks INTEGER,
+  feedback TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### 2. Row Level Security (RLS) Policies
+```sql
+-- Enable RLS on all tables
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.batches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.student_batches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.questions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.attempts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.results ENABLE ROW LEVEL SECURITY;
+
+-- Profiles: Users can only see/update their own profile
+CREATE POLICY "Users can view own profile" ON public.profiles FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Allow public insert for signup" ON public.profiles FOR INSERT WITH CHECK (true);
+
+-- Tests: Teachers see their own, Students see assigned
+CREATE POLICY "Teachers can manage own tests" ON public.tests FOR ALL USING (auth.uid() = created_by);
+CREATE POLICY "Students can view assigned tests" ON public.tests FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM public.test_batches tb
+    JOIN public.student_batches sb ON tb.batch_id = sb.batch_id
+    WHERE tb.test_id = public.tests.id AND sb.student_id = auth.uid()
+  )
+);
+
+-- Attempts: Students manage own, Teachers view all
+CREATE POLICY "Students manage own attempts" ON public.attempts FOR ALL USING (auth.uid() = student_id);
+CREATE POLICY "Teachers view attempts for their tests" ON public.attempts FOR SELECT USING (
+  EXISTS (SELECT 1 FROM public.tests t WHERE t.id = test_id AND t.created_by = auth.uid())
+);
+```
+
+---
+
 ## 👨‍💻 Creator & License
 Designed and Developed by **zoKer** (Master of Mischief & Infrastructure).
 - Support & Inquiries: [support@evalix.ai](mailto:support@evalix.ai)
+- Repository: [illuminatiAyush/EVALI-X](https://github.com/illuminatiAyush/EVALI-X)

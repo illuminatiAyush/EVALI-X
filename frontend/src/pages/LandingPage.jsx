@@ -235,8 +235,51 @@ function TestimonialSlider() {
   );
 }
 
+function MobileMenu({ isOpen, setIsOpen }) {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          className="lg:hidden absolute top-16 left-0 right-0 bg-background border-b border-border z-40 overflow-hidden shadow-xl"
+        >
+          <div className="p-6 space-y-4">
+            {[
+              { label: 'Architecture', href: '#features' },
+              { label: 'Assessments', href: '#' },
+              { label: 'Departments', href: '#' },
+              { label: 'Analytics', href: '#' },
+              { label: 'Deploy', href: '#deploy' }
+            ].map((tab) => (
+              <a 
+                key={tab.label} 
+                href={tab.href} 
+                onClick={() => setIsOpen(false)}
+                className="block text-lg font-medium text-text-muted hover:text-brand transition-colors"
+              >
+                {tab.label}
+              </a>
+            ))}
+            <div className="pt-4 border-t border-border flex flex-col gap-3">
+              <Link to="/login" className="w-full py-3 text-center font-medium text-text-muted border border-border rounded-xl">
+                Sign In
+              </Link>
+              <Link to="/login" className="w-full py-3 text-center font-bold text-background bg-brand rounded-xl">
+                Launch Platform
+              </Link>
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 export default function LandingPage() {
   const [hoveredLetter, setHoveredLetter] = useState(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-background text-text overflow-x-hidden">
@@ -253,7 +296,7 @@ export default function LandingPage() {
                 <span className="hidden sm:block text-[9px] font-mono text-text-muted border border-border rounded px-1 py-0.5 bg-surface leading-none">v2.0</span>
               </div>
               <span className="hidden sm:block text-[10.5px] text-text-muted font-medium leading-none">
-                Proudly built for VPPPCOE & VA, Sion
+                Built for VPPPCOE Sion
               </span>
             </div>
           </div>
@@ -273,18 +316,26 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <Link to="/login" className="text-sm font-medium text-text-muted hover:text-text transition-colors hidden sm:block">
-              Sign In
-            </Link>
-            <Link
-              to="/login"
-              className="flex items-center gap-1.5 px-4 py-2 bg-brand text-background rounded-lg text-sm font-bold hover:bg-brand-hover transition-all shadow-[0_0_12px_rgba(34,211,238,0.3)] hover:shadow-[0_0_20px_rgba(34,211,238,0.5)]"
+            <div className="hidden sm:flex items-center gap-3">
+              <Link to="/login" className="text-sm font-medium text-text-muted hover:text-text transition-colors">
+                Sign In
+              </Link>
+              <Link
+                to="/login"
+                className="flex items-center gap-1.5 px-4 py-2 bg-brand text-background rounded-lg text-sm font-bold hover:bg-brand-hover transition-all"
+              >
+                Launch <ArrowRight size={14} />
+              </Link>
+            </div>
+            <button 
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="lg:hidden p-2 text-text-muted bg-surface border border-border rounded-lg"
             >
-              Launch <ArrowRight size={14} />
-            </Link>
+              {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
           </div>
         </Container>
+        <MobileMenu isOpen={isMobileMenuOpen} setIsOpen={setIsMobileMenuOpen} />
       </nav>
 
       {/* ── HERO ── */}

@@ -95,19 +95,37 @@ async function generateTestQuestions(text, difficulty = 'medium', numQuestions =
   
   let analysis;
   try {
-    analysis = JSON.parse(analysisRaw);
+    // 🚨 Clean potential markdown formatting
+    const cleaned = analysisRaw.replace(/```json/g, '').replace(/```/g, '').trim();
+    analysis = JSON.parse(cleaned);
   } catch (e) {
     logger.error({ raw: analysisRaw }, 'Failed to parse Analysis JSON');
     throw new Error('AI produced invalid analysis format.');
   }
 
   // Stage 2: Generation
-  const genPrompt = `Generate ${numQuestions} questions (${difficulty}). Context: ${context}. Summary: ${analysis.summary || ''}. Return valid JSON strictly in this format: { mcqs: [{question, options, answer}], shortAnswers: [{question, answer}] }`;
-  const genRaw = await callAI('You are an expert teacher. Output valid JSON only.', genPrompt, { temperature: 0.7, max_tokens: 8000 });
+  const genPrompt = `
+    Generate exactly ${numQuestions} questions based on the following context.
+    Difficulty: ${difficulty}
+    Summary: ${analysis.summary || 'Analyze general topics.'}
+    Context: ${context}
+
+    STRICT JSON FORMAT:
+    {
+      "mcqs": [{"question": "...", "options": ["A", "B", "C", "D"], "answer": "Exact option text"}],
+      "shortAnswers": [{"question": "...", "answer": "..."}]
+    }
+    
+    Return ONLY valid JSON. No conversational text.
+  `;
+  
+  const genRaw = await callAI('You are a professional assessment engine. Output valid JSON strictly.', genPrompt, { temperature: 0.7, max_tokens: 8000 });
   
   let testContent;
   try {
-    testContent = JSON.parse(genRaw);
+    // 🚨 Clean potential markdown formatting
+    const cleaned = genRaw.replace(/```json/g, '').replace(/```/g, '').trim();
+    testContent = JSON.parse(cleaned);
   } catch (e) {
     logger.error({ raw: genRaw }, 'Failed to parse Generation JSON');
     throw new Error('AI produced invalid questions format.');
