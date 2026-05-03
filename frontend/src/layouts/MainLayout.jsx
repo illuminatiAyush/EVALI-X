@@ -36,14 +36,16 @@ export default function MainLayout() {
 
   const teacherLinks = [
     { name: 'Dashboard', path: '/teacher/dashboard', icon: LayoutDashboard },
-    { name: 'Create', path: '/teacher/create-test', icon: PlusCircle },
-    { name: 'Classes', path: '/teacher/batches', icon: Users },
+    { name: 'Assessments', path: '/teacher/create-test', icon: PlusCircle },
+    { name: 'Academic Classes', path: '/teacher/batches', icon: Users },
+    { name: 'Security & Profile', path: '/teacher/profile', icon: User },
   ];
 
   const studentLinks = [
     { name: 'Dashboard', path: '/student/dashboard', icon: LayoutDashboard },
-    { name: 'History', path: '/student/history', icon: BookOpen },
-    { name: 'Join', path: '/student/join-batch', icon: KeyRound },
+    { name: 'Transcript', path: '/student/history', icon: BookOpen },
+    { name: 'Join Class', path: '/student/join-batch', icon: KeyRound },
+    { name: 'Account Info', path: '/student/profile', icon: User },
   ];
 
   const links = role === 'teacher' ? teacherLinks : studentLinks;
@@ -150,13 +152,13 @@ export default function MainLayout() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <button className="flex items-center gap-2 p-3 text-sm font-medium text-text-muted hover:bg-background rounded-lg border border-transparent hover:border-border transition-all">
-                <Settings size={18} />
-                <span>Settings</span>
-              </button>
+              <Link to={`/${role}/profile`} onClick={() => setIsMobileMenuOpen(false)} className="flex items-center justify-center gap-2 p-3 text-sm font-medium text-text-muted bg-background rounded-lg border border-border transition-all">
+                <User size={18} />
+                <span>Account</span>
+              </Link>
               <button 
                 onClick={handleLogout}
-                className="flex items-center gap-2 p-3 text-sm font-medium text-danger hover:bg-danger/10 rounded-lg border border-transparent hover:border-danger/20 transition-all"
+                className="flex items-center justify-center gap-2 p-3 text-sm font-medium text-danger bg-danger/5 rounded-lg border border-danger/10 transition-all"
               >
                 <LogOut size={18} />
                 <span>Logout</span>
@@ -182,9 +184,9 @@ export default function MainLayout() {
               <Bell size={20} />
               <span className="absolute top-2 right-2 w-2 h-2 bg-brand rounded-full shadow-cyan-glow"></span>
             </button>
-            <button className="p-2.5 text-text-muted hover:bg-surface rounded-xl transition-all border border-transparent hover:border-border">
-              <Settings size={20} />
-            </button>
+            <Link to={`/${role}/profile`} className="p-2.5 text-text-muted hover:bg-surface rounded-xl transition-all border border-transparent hover:border-border">
+              <User size={20} />
+            </Link>
             <div className="h-8 w-px bg-border mx-2"></div>
             <div className="flex items-center gap-3 pl-2">
               <div className="text-right">

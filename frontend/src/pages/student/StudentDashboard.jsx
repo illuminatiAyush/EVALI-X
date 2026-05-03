@@ -112,8 +112,8 @@ export default function StudentDashboard() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 pb-6 border-b border-border">
         <div>
-          <h1 className="text-4xl font-display font-extrabold tracking-tight">Student Dashboard</h1>
-          <p className="text-text-muted font-sans mt-2">Welcome to your dashboard. View and take your assessments below.</p>
+          <h1 className="text-4xl font-display font-extrabold tracking-tight">Candidate Portal</h1>
+          <p className="text-text-muted font-sans mt-2">Access your assigned evaluations and monitor your academic progression.</p>
         </div>
         <Button 
           to="/student/join-batch"
@@ -121,7 +121,7 @@ export default function StudentDashboard() {
           className="px-lg"
         >
           <Users size={18} className="mr-2" />
-          Join Class
+          Enrol in Section
         </Button>
       </div>
 
@@ -138,7 +138,7 @@ export default function StudentDashboard() {
               <BookOpen size={24} />
             </div>
             <div>
-              <p className="text-xs font-semibold text-text-muted uppercase tracking-wider">Assessments Taken</p>
+              <p className="text-xs font-semibold text-text-muted uppercase tracking-wider">Evaluations Finalized</p>
             </div>
           </div>
           <h3 className="text-4xl font-display font-bold text-right">{dashboardStats.totalAttempts}</h3>
@@ -162,7 +162,7 @@ export default function StudentDashboard() {
               <GraduationCap size={24} />
             </div>
             <div>
-              <p className="text-xs font-semibold text-text-muted uppercase tracking-wider">Total Points</p>
+              <p className="text-xs font-semibold text-text-muted uppercase tracking-wider">Academic Credits</p>
             </div>
           </div>
           <h3 className="text-4xl font-display font-bold text-right text-purple-500">{dashboardStats.learningPoints}</h3>
@@ -175,7 +175,7 @@ export default function StudentDashboard() {
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-display font-bold flex items-center gap-3">
               <div className="w-2 h-6 bg-purple-500 rounded-sm"></div>
-              My Batches
+              Institutional Sections
             </h2>
           </div>
           <div className="grid md:grid-cols-3 gap-md">
@@ -294,7 +294,7 @@ export default function StudentDashboard() {
                         to={`/student/test/${test.id}`}
                         variant="primary"
                       >
-                        Give Test
+                        Commence Evaluation
                       </Button>
                     )}
                   </div>

@@ -19,6 +19,7 @@ const TestAttemptPage = lazy(() => import('./pages/student/TestAttemptPage'));
 const TestResultsPage = lazy(() => import('./pages/student/TestResultsPage'));
 const StudentHistoryPage = lazy(() => import('./pages/student/StudentHistoryPage'));
 const JoinBatchPage = lazy(() => import('./pages/student/JoinBatchPage'));
+const ProfilePage = lazy(() => import('./pages/common/ProfilePage'));
 
 // Loading Fallback Component
 const PageLoader = () => (
@@ -61,6 +62,7 @@ function AppRoutes() {
             <Route path="test/:id" element={<TestViewerPage />} />
             <Route path="analytics/:id" element={<TestAnalyticsPage />} />
             <Route path="batches" element={<BatchManagementPage />} />
+            <Route path="profile" element={<ProfilePage />} />
           </Route>
         </Route>
 
@@ -72,6 +74,7 @@ function AppRoutes() {
             <Route path="results/:id" element={<TestResultsPage />} />
             <Route path="history" element={<StudentHistoryPage />} />
             <Route path="join-batch" element={<JoinBatchPage />} />
+            <Route path="profile" element={<ProfilePage />} />
           </Route>
         </Route>
 

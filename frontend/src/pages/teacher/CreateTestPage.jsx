@@ -173,12 +173,12 @@ export default function CreateTestPage() {
               animate={{ opacity: 1, y: 0 }}
               className="text-4xl font-display font-extrabold tracking-tight mb-4"
             >
-              Generating Assessment...
+              Architecting Assessment...
             </motion.h2>
 
             <div className="max-w-md space-y-3">
               <p className="text-text-muted font-sans font-medium">
-                Our AI is reading your document and creating questions.
+                Our AI is analyzing your syllabus framework to construct high-fidelity questions.
               </p>
               <div className="flex items-center justify-center gap-4 text-xs font-semibold text-brand uppercase tracking-wider mt-6">
                 <span className="flex items-center gap-1"><Dna size={14} /> Reading PDF</span>
@@ -201,13 +201,13 @@ export default function CreateTestPage() {
               <div className="p-2 bg-brand/10 text-brand rounded-lg">
                 <Settings2 size={20} />
               </div>
-              <h2 className="text-2xl font-display font-extrabold tracking-tight">Parameters</h2>
+              <h2 className="text-2xl font-display font-extrabold tracking-tight">Protocol Configuration</h2>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-8">
               {/* Difficulty */}
               <div>
-                <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-4">Target Difficulty</label>
+                <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-4">Cognitive Complexity</label>
                 <div className="grid grid-cols-3 gap-2 p-1.5 bg-background rounded-lg border border-border">
                   {['easy', 'medium', 'hard'].map((level) => (
                     <button
@@ -228,7 +228,7 @@ export default function CreateTestPage() {
               {/* Question Count */}
               <div>
                 <div className="flex justify-between items-center mb-4">
-                  <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider">Number of Questions</label>
+                  <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider">Assessment Volume</label>
                   <span className="text-sm font-bold text-brand bg-brand/10 px-3 py-1 rounded-md">{formData.numQuestions}</span>
                 </div>
                 <input
@@ -277,7 +277,7 @@ export default function CreateTestPage() {
 
               {/* Assign to Batches */}
               <div>
-                <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-4">Assign to Classes</label>
+                <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-4">Designate Academic Sections</label>
                 <div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
                   {batches.length === 0 ? (
                     <p className="text-sm text-text-muted font-sans italic">No classes found.</p>
@@ -307,9 +307,9 @@ export default function CreateTestPage() {
                 type="submit"
                 disabled={!file || loading}
                 variant="primary"
-                className="w-full py-5 text-base shadow-cyan-glow"
+                className="w-full py-5 text-base shadow-indigo-glow"
               >
-                {loading ? 'Generating...' : 'Generate Assessment'}
+                {loading ? 'Synthesizing...' : 'Initialize Assessment'}
                 {!loading && <ArrowRight size={20} className="ml-2" />}
               </Button>
             </form>
@@ -322,10 +322,10 @@ export default function CreateTestPage() {
             <div className="mb-10">
               <h1 className="text-4xl lg:text-6xl font-display font-extrabold leading-tight mb-4 tracking-tight">
                 Assessment <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand to-cyan-300">Creator</span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand to-indigo-400">Architect</span>
               </h1>
               <p className="text-lg text-text-muted font-sans max-w-xl">
-                Upload a PDF document. Our AI will automatically generate a complete assessment based on its contents.
+                Ingest your source material via PDF. Our AI engine will analyze the curriculum to construct a comprehensive evaluation protocol.
               </p>
             </div>
 
@@ -370,7 +370,7 @@ export default function CreateTestPage() {
                     }`}>
                     <UploadCloud size={36} />
                   </div>
-                  <h3 className="text-2xl font-display font-extrabold mb-3">Upload Document</h3>
+                  <h3 className="text-2xl font-display font-extrabold mb-3">Ingest Source Material</h3>
                   <p className="text-text-muted font-sans mb-8 max-w-xs">
                     Drop your PDF study material here to get started.
                   </p>

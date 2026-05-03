@@ -85,8 +85,8 @@ export default function BatchManagementPage() {
   return (
     <div className="space-y-8 max-w-5xl mx-auto pb-12 w-full">
       <div className="pb-6 border-b border-border">
-        <h1 className="text-4xl font-display font-extrabold tracking-tight text-text">Class Management</h1>
-        <p className="text-text-muted font-sans mt-2">Create and manage classes for your assessments.</p>
+        <h1 className="text-4xl font-display font-extrabold tracking-tight text-text">Section Administration</h1>
+        <p className="text-text-muted font-sans mt-2">Define and manage academic sections for your assessments.</p>
       </div>
 
       <div className="grid md:grid-cols-3 gap-lg">
@@ -95,11 +95,11 @@ export default function BatchManagementPage() {
             <form onSubmit={handleCreateBatch} className="space-y-6">
               <h2 className="text-xl font-display font-bold text-text flex items-center gap-2">
                 <div className="w-2 h-5 bg-brand rounded-sm"></div>
-                New Class
+                Define Section
               </h2>
               
               <Input
-                label="Class Name"
+                label="Section Designation"
                 value={newBatchName}
                 onChange={(e) => setNewBatchName(e.target.value)}
                 placeholder="e.g. History 101"
@@ -109,7 +109,7 @@ export default function BatchManagementPage() {
               <div>
                 <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-2 flex items-center gap-2">
                   <CalendarClock size={16} className="text-text-muted" />
-                  Enrollment Deadline <span className="text-xs text-text-muted font-normal italic">(Optional)</span>
+                  Enrollment Window Closing <span className="text-xs text-text-muted font-normal italic">(Optional)</span>
                 </label>
                 <input
                   type="datetime-local"
@@ -119,7 +119,7 @@ export default function BatchManagementPage() {
                   className="w-full px-4 py-3 bg-background rounded-md border border-border focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand text-text transition-all text-sm"
                 />
                 <p className="text-xs text-text-muted mt-2 leading-tight">
-                  Students won't be able to join the class after this time.
+                  Students will be unable to initialize enrollment after this timestamp.
                 </p>
               </div>
 
@@ -134,7 +134,7 @@ export default function BatchManagementPage() {
                 ) : (
                   <>
                     <Plus size={18} className="mr-2" />
-                    Register
+                    Initialize
                   </>
                 )}
               </Button>
@@ -145,7 +145,7 @@ export default function BatchManagementPage() {
         <div className="md:col-span-2 space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-display font-bold text-text flex items-center gap-3">
-              Active Classes
+              Authorized Sections
             </h2>
             {!loading && batches.length > 0 && (
               <span className="text-xs font-semibold bg-brand/10 text-brand px-3 py-1 rounded-sm uppercase tracking-wider">
@@ -167,7 +167,7 @@ export default function BatchManagementPage() {
           ) : batches.length === 0 ? (
             <Card p="xl" className="text-center border-dashed">
               <Users size={48} className="mx-auto text-text-muted mb-4" />
-              <p className="text-text-muted font-semibold uppercase tracking-wider text-sm">No classes found.</p>
+              <p className="text-text-muted font-semibold uppercase tracking-wider text-sm">No authorized sections found.</p>
             </Card>
           ) : (
             <>
@@ -206,7 +206,7 @@ export default function BatchManagementPage() {
                         </div>
                         <div className="flex items-center justify-between bg-background p-3 rounded-lg border border-border mt-auto">
                           <div>
-                            <span className="text-xs font-semibold text-text-muted uppercase tracking-wider block mb-1">Join Code</span>
+                            <span className="text-xs font-semibold text-text-muted uppercase tracking-wider block mb-1">Access Token</span>
                             <span className={`font-display text-xl font-bold tracking-widest ${batch.expires_at && new Date(batch.expires_at) < new Date() ? 'text-text-muted line-through opacity-50' : 'text-brand'}`}>
                               {batch.join_code}
                             </span>

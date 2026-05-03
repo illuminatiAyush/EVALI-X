@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+// 🚨 SAFETY NET ADDED: .trim() destroys invisible newlines and spaces!
+const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim();
+const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('❌ CRITICAL: Supabase credentials missing!');
@@ -13,7 +14,7 @@ export const supabase = globalThis.__SUPABASE_CLIENT__ || createClient(supabaseU
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    storageKey: 'evalix-auth-token', // 🚨 Custom key forces a clean cache boundary
+    storageKey: 'evalix-auth-token', // Custom key forces a clean cache boundary
     storage: window.localStorage,
   },
 });
@@ -40,10 +41,10 @@ export const auth = {
     // Wrap the entire flow in a timeout so we NEVER hang forever
     const loginFlow = async () => {
       // Clear stale/corrupted session to prevent silent refresh hangs
-      try { await supabase.auth.signOut(); } catch (_) {}
+      try { await supabase.auth.signOut(); } catch (_) { }
       return supabase.auth.signInWithPassword({ email, password });
     };
-    
+
     return withTimeout(loginFlow(), "Login timed out. Please check your internet connection.");
   },
   signUp: (email, password, options) =>

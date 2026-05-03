@@ -103,10 +103,10 @@ export default function AuthPage() {
         >
           <div className="text-center lg:text-left mb-10">
             <h2 className="text-4xl font-display font-extrabold tracking-tight text-text">
-              {isLogin ? 'Execute Login' : 'Initialize Account'}
+              {isLogin ? 'System Authentication' : 'Institutional Registration'}
             </h2>
             <p className="text-brand mt-3 font-mono text-xs uppercase tracking-widest">
-              {isLogin ? 'Status: Awaiting Credentials' : 'Status: Ready for initialization'}
+              {isLogin ? 'Protocol: Awaiting Credentials' : 'Protocol: Awaiting Initialization'}
             </p>
           </div>
 
@@ -137,7 +137,7 @@ export default function AuthPage() {
               />
 
               <Input 
-                label="Passcode"
+                label="Security Key"
                 type="password" 
                 required
                 value={password}
@@ -154,7 +154,7 @@ export default function AuthPage() {
                     exit={{ opacity: 0, height: 0 }}
                     className="space-y-3 overflow-hidden"
                   >
-                    <label className="block text-[10px] font-mono font-bold text-text-muted mb-2 uppercase tracking-widest">Select Clearance Level</label>
+                    <label className="block text-[10px] font-mono font-bold text-text-muted mb-2 uppercase tracking-widest">Select Institutional Role</label>
                     <div className="grid grid-cols-2 gap-4">
                       <button
                         type="button"

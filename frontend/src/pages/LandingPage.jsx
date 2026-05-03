@@ -322,9 +322,9 @@ export default function LandingPage() {
               </Link>
               <Link
                 to="/login"
-                className="flex items-center gap-1.5 px-4 py-2 bg-brand text-background rounded-lg text-sm font-bold hover:bg-brand-hover transition-all"
+                className="flex items-center gap-1.5 px-4 py-2 bg-brand text-background rounded-xl text-sm font-bold hover:bg-brand-hover transition-all"
               >
-                Launch <ArrowRight size={14} />
+                Portal <ArrowRight size={14} />
               </Link>
             </div>
             <button 
@@ -371,22 +371,22 @@ export default function LandingPage() {
             </motion.h1>
 
             <motion.p variants={fadeUp} className="text-lg md:text-xl text-text-muted leading-relaxed mb-10 max-w-2xl">
-              Industrial-grade AI assessment infrastructure. Deploy structured, high-fidelity evaluations generated instantly via Groq Llama 3 — at scale.
+              Elite academic assessment infrastructure. Deploy structured, high-fidelity evaluations generated via advanced LLM inference — at scale.
             </motion.p>
 
             <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-center gap-4">
               <Link
                 to="/login"
-                className="group flex items-center justify-center gap-2 px-8 py-3.5 bg-brand text-background rounded-xl font-bold text-base hover:bg-brand-hover transition-all shadow-[0_0_20px_rgba(34,211,238,0.35)] hover:shadow-[0_0_35px_rgba(34,211,238,0.55)]"
+                className="group flex items-center justify-center gap-2 px-8 py-3.5 bg-brand text-background rounded-xl font-bold text-base hover:bg-brand-hover transition-all shadow-[0_0_20px_rgba(79,70,229,0.35)] hover:shadow-[0_0_35px_rgba(79,70,229,0.55)]"
               >
-                Deploy Now
+                Get Started
                 <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
               </Link>
               <Link
                 to="/login"
                 className="flex items-center justify-center gap-2 px-8 py-3.5 border border-border rounded-xl font-bold text-base text-text-muted hover:border-brand/40 hover:text-brand transition-all"
               >
-                System Access
+                Institutional Access
               </Link>
             </motion.div>
 
@@ -676,9 +676,9 @@ export default function LandingPage() {
               </p>
               <Link
                 to="/login"
-                className="inline-flex items-center gap-2 px-10 py-4 bg-brand text-background rounded-xl font-bold text-lg hover:bg-brand-hover transition-all shadow-[0_0_25px_rgba(34,211,238,0.3)] hover:shadow-[0_0_45px_rgba(34,211,238,0.5)]"
+                className="inline-flex items-center gap-2 px-10 py-4 bg-brand text-background rounded-xl font-bold text-lg hover:bg-brand-hover transition-all shadow-[0_0_25px_rgba(79,70,229,0.3)] hover:shadow-[0_0_45px_rgba(79,70,229,0.5)]"
               >
-                Initialize Now <ArrowRight size={20} />
+                Initialize Access <ArrowRight size={20} />
               </Link>
             </div>
           </motion.div>

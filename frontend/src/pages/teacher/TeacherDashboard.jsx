@@ -139,8 +139,8 @@ export default function TeacherDashboard() {
       {/* Welcome Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 pb-6 border-b border-border">
         <div>
-          <h1 className="text-4xl font-display font-extrabold tracking-tight">Dashboard</h1>
-          <p className="text-text-muted font-sans mt-2">Create AI-generated assessments and view class performance.</p>
+          <h1 className="text-4xl font-display font-extrabold tracking-tight">Academic Oversight</h1>
+          <p className="text-text-muted font-sans mt-2">Initialize high-fidelity assessments and monitor institutional performance.</p>
         </div>
         <div className="flex items-center gap-3">
           <Button 
@@ -148,14 +148,14 @@ export default function TeacherDashboard() {
             variant="outline"
           >
             <Users size={18} className="mr-2" />
-            Manage Classes
+            Academic Sections
           </Button>
           <Button 
             to="/teacher/create-test"
             variant="primary"
           >
             <PlusCircle size={18} className="mr-2" />
-            New Assessment
+            Initialize Assessment
           </Button>
         </div>
       </div>
@@ -188,7 +188,7 @@ export default function TeacherDashboard() {
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-display font-bold flex items-center gap-3">
               <div className="w-2 h-6 bg-brand rounded-sm"></div>
-              Recent Assessments
+              Active Evaluations
             </h2>
             <Link to="#" className="text-sm font-semibold text-brand hover:underline underline-offset-4 uppercase tracking-wider">View All</Link>
           </div>
@@ -228,7 +228,7 @@ export default function TeacherDashboard() {
                     <div className="flex items-center gap-6 justify-between sm:justify-end">
                       <div className="text-right">
                         <p className="text-2xl font-display font-bold leading-none">{attemptCounts[test.id] || 0}</p>
-                        <p className="text-xs font-semibold text-text-muted uppercase tracking-widest mt-1">Attempts</p>
+                        <p className="text-xs font-semibold text-text-muted uppercase tracking-widest mt-1">Submissions</p>
                       </div>
                       <div className="flex items-center gap-3">
                         {test.status === 'scheduled' && (
