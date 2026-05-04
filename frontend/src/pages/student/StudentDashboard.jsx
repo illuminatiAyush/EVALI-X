@@ -32,17 +32,73 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     let mounted = true;
-    loadDashboardData(mounted);
+
+    const loadDashboardData = async () => {
+      try {
+        let available = [];
+        try {
+          const batchData = await apiService.getBatches();
+          if (mounted && batchData?.data) {
+            setBatches(batchData.data);
+          }
+        } catch (err) {
+          console.warn('Could not load batches:', err.message);
+        }
+
+        try {
+          const allTests = await apiService.getMyTests();
+          const now = new Date();
+          available = (allTests || []).filter(test => {
+            if (test.status !== 'scheduled' && test.status !== 'active') return false;
+            return true;
+          }).map(test => {
+            // Mark tests that haven't started yet as 'upcoming'
+            const isUpcoming = test.status === 'scheduled' && test.start_time && new Date(test.start_time) > now;
+            return { ...test, _upcoming: isUpcoming };
+          });
+        } catch (err) {
+          console.warn('Could not load tests:', err.message);
+        }
+        
+        if (mounted) setTests(available);
+
+        try {
+          const stats = await apiService.getStudentDashboardStats();
+          if (mounted) setDashboardStats(stats);
+        } catch (err) {
+          console.warn('Could not load stats:', err.message);
+        }
+
+        if (available.length > 0) {
+          try {
+            const results = await apiService.getStudentResults();
+            const map = {};
+            if (results && results.length > 0) {
+              results.forEach(r => map[r.test_id] = true);
+            }
+            if (mounted) setAttemptMap(map);
+          } catch (err) {
+            console.warn('Could not load results:', err.message);
+          }
+        }
+      } catch (err) {
+        console.error('Dashboard load error:', err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    loadDashboardData();
 
     // Set up realtime listener for new tests
     const channel = supabase.channel('student-dashboard-tests')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'test_batches' }, () => {
         toast.info('A new test was just assigned to your batch!');
-        loadDashboardData(mounted);
+        if (mounted) loadDashboardData();
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tests' }, () => {
         // Also listen to tests in case it's a global test
-        loadDashboardData(mounted);
+        if (mounted) loadDashboardData();
       })
       .subscribe();
 
@@ -52,68 +108,13 @@ export default function StudentDashboard() {
     };
   }, []);
 
-  const loadDashboardData = async (isMounted = true) => {
-    try {
-      let available = [];
-      try {
-        const batchData = await apiService.getBatches();
-        if (isMounted && batchData?.data) {
-          setBatches(batchData.data);
-        }
-      } catch (err) {
-        console.warn('Could not load batches:', err.message);
-      }
-
-      try {
-        const allTests = await apiService.getMyTests();
-        const now = new Date();
-        available = (allTests || []).filter(test => {
-          if (test.status !== 'scheduled' && test.status !== 'active') return false;
-          return true;
-        }).map(test => {
-          // Mark tests that haven't started yet as 'upcoming'
-          const isUpcoming = test.status === 'scheduled' && test.start_time && new Date(test.start_time) > now;
-          return { ...test, _upcoming: isUpcoming };
-        });
-      } catch (err) {
-        console.warn('Could not load tests:', err.message);
-      }
-      
-      if (isMounted) setTests(available);
-
-      try {
-        const stats = await apiService.getStudentDashboardStats();
-        if (isMounted) setDashboardStats(stats);
-      } catch (err) {
-        console.warn('Could not load stats:', err.message);
-      }
-
-      if (available.length > 0) {
-        try {
-          const results = await apiService.getStudentResults();
-          const map = {};
-          if (results && results.length > 0) {
-            results.forEach(r => map[r.test_id] = true);
-          }
-          if (isMounted) setAttemptMap(map);
-        } catch (err) {
-          console.warn('Could not load results:', err.message);
-        }
-      }
-    } catch (err) {
-      console.error('Dashboard load error:', err);
-    } finally {
-      if (isMounted) setLoading(false);
-    }
-  };
-
   return (
     <div className="space-y-10">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 pb-6 border-b border-border">
         <div>
-          <h1 className="text-4xl font-display font-extrabold tracking-tight">Candidate Portal</h1>
-          <p className="text-text-muted font-sans mt-2">Access your assigned evaluations and monitor your academic progression.</p>
+          <h1 className="text-2xl sm:text-4xl font-display font-extrabold tracking-tight">Candidate Portal</h1>
+          <p className="text-text-muted font-sans mt-2 text-sm sm:text-base">Access your assigned evaluations and monitor your academic progression.</p>
         </div>
         <Button 
           to="/student/join-batch"
@@ -132,40 +133,40 @@ export default function StudentDashboard() {
         animate="show"
         className="grid grid-cols-1 md:grid-cols-12 gap-md"
       >
-        <Card p="md" className="md:col-span-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-brand/10 text-brand">
-              <BookOpen size={24} />
+        <Card p="sm" className="md:col-span-4 flex items-center justify-between">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center bg-brand/10 text-brand">
+              <BookOpen size={20} className="sm:size-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-text-muted uppercase tracking-wider">Evaluations Finalized</p>
+              <p className="text-[10px] sm:text-xs font-semibold text-text-muted uppercase tracking-wider">Evaluations Finalized</p>
             </div>
           </div>
-          <h3 className="text-4xl font-display font-bold text-right">{dashboardStats.totalAttempts}</h3>
+          <h3 className="text-2xl sm:text-4xl font-display font-bold text-right">{dashboardStats.totalAttempts}</h3>
         </Card>
 
-        <Card p="md" className="md:col-span-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-emerald-500/10 text-emerald-500">
-              <Trophy size={24} />
+        <Card p="sm" className="md:col-span-4 flex items-center justify-between">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center bg-emerald-500/10 text-emerald-500">
+              <Trophy size={20} className="sm:size-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-text-muted uppercase tracking-wider">Avg. Score</p>
+              <p className="text-[10px] sm:text-xs font-semibold text-text-muted uppercase tracking-wider">Avg. Score</p>
             </div>
           </div>
-          <h3 className="text-4xl font-display font-bold text-right text-emerald-500">{dashboardStats.avgAccuracy}%</h3>
+          <h3 className="text-2xl sm:text-4xl font-display font-bold text-right text-emerald-500">{dashboardStats.avgAccuracy}%</h3>
         </Card>
 
-        <Card p="md" className="md:col-span-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-purple-500/10 text-purple-500">
-              <GraduationCap size={24} />
+        <Card p="sm" className="md:col-span-4 flex items-center justify-between">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center bg-purple-500/10 text-purple-500">
+              <GraduationCap size={20} className="sm:size-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-text-muted uppercase tracking-wider">Academic Credits</p>
+              <p className="text-[10px] sm:text-xs font-semibold text-text-muted uppercase tracking-wider">Academic Credits</p>
             </div>
           </div>
-          <h3 className="text-4xl font-display font-bold text-right text-purple-500">{dashboardStats.learningPoints}</h3>
+          <h3 className="text-2xl sm:text-4xl font-display font-bold text-right text-purple-500">{dashboardStats.learningPoints}</h3>
         </Card>
       </motion.div>
 

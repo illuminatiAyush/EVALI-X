@@ -38,20 +38,58 @@ export default function TeacherDashboard() {
 
   useEffect(() => {
     let isMounted = true;
-    loadDashboardData(isMounted);
+
+    const loadDashboardData = async () => {
+      try {
+        // Load tests
+        let testList = [];
+        try {
+          const data = await apiService.getMyTests();
+          if (isMounted) testList = data || [];
+        } catch (err) {
+          console.warn('Could not load tests:', err.message);
+        }
+        
+        if (isMounted) setTests(testList);
+
+        // Load stats
+        try {
+          const stats = await apiService.getTeacherDashboardStats();
+          if (isMounted) setDashboardStats(stats);
+        } catch (err) {
+          console.warn('Could not load stats:', err.message);
+        }
+
+        // Load attempt counts
+        if (testList.length > 0) {
+          try {
+            const counts = await apiService.getTestAttemptCounts(testList.map(t => t.id));
+            if (isMounted) setAttemptCounts(counts);
+          } catch (err) {
+            console.warn('Could not load attempt counts:', err.message);
+          }
+        }
+      } catch (err) {
+        console.error('Dashboard load error:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    loadDashboardData();
 
     // Set up realtime listener for new attempts and results
     const channel = supabase.channel('teacher-dashboard-updates')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attempts' }, () => {
         if (isMounted) {
           toast.info('A student has started taking a test.');
-          loadDashboardData(isMounted);
+          loadDashboardData();
         }
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'results' }, () => {
         if (isMounted) {
           toast.success('A student just submitted a test!');
-          loadDashboardData(isMounted);
+          loadDashboardData();
         }
       })
       .subscribe();
@@ -62,46 +100,9 @@ export default function TeacherDashboard() {
     };
   }, []);
 
-  const loadDashboardData = async (isMounted) => {
-    try {
-      // Load tests — may fail if get-tests edge function not deployed
-      let testList = [];
-      try {
-        const data = await apiService.getMyTests();
-        if (isMounted) testList = data || [];
-      } catch (err) {
-        console.warn('Could not load tests:', err.message);
-      }
-      
-      if (isMounted) setTests(testList);
-
-      // Load stats — uses direct DB queries, more resilient
-      try {
-        const stats = await apiService.getTeacherDashboardStats();
-        if (isMounted) setDashboardStats(stats);
-      } catch (err) {
-        console.warn('Could not load stats:', err.message);
-      }
-
-      // Load attempt counts
-      if (testList.length > 0) {
-        try {
-          const counts = await apiService.getTestAttemptCounts(testList.map(t => t.id));
-          if (isMounted) setAttemptCounts(counts);
-        } catch (err) {
-          console.warn('Could not load attempt counts:', err.message);
-        }
-      }
-    } catch (err) {
-      console.error('Dashboard load error:', err);
-    } finally {
-      if (isMounted) setLoading(false);
-    }
-  };
-
   const handleStartTest = async (testId) => {
     try {
-      await apiService.setTestStatus(testId, 'start');
+      await apiService.updateTestStatus(testId, 'start');
       toast.success('Assessment started manually. It is now active.');
       loadDashboardData();
     } catch (err) {
@@ -116,7 +117,7 @@ export default function TeacherDashboard() {
         label: 'Terminate',
         onClick: async () => {
           try {
-            await apiService.setTestStatus(testId, 'end');
+            await apiService.updateTestStatus(testId, 'end');
             toast.success('Assessment force-ended successfully.');
             loadDashboardData();
           } catch (err) {
@@ -139,8 +140,8 @@ export default function TeacherDashboard() {
       {/* Welcome Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 pb-6 border-b border-border">
         <div>
-          <h1 className="text-4xl font-display font-extrabold tracking-tight">Academic Oversight</h1>
-          <p className="text-text-muted font-sans mt-2">Initialize high-fidelity assessments and monitor institutional performance.</p>
+          <h1 className="text-2xl sm:text-4xl font-display font-extrabold tracking-tight">Academic Oversight</h1>
+          <p className="text-text-muted font-sans mt-2 text-sm sm:text-base">Initialize high-fidelity assessments and monitor institutional performance.</p>
         </div>
         <div className="flex items-center gap-3">
           <Button 
@@ -168,16 +169,16 @@ export default function TeacherDashboard() {
         className="grid grid-cols-1 md:grid-cols-12 gap-md"
       >
         {stats.map((stat, i) => (
-          <Card key={i} p="md" className="md:col-span-4 flex items-center justify-between bg-surface border border-border">
-            <div className="flex items-center gap-4">
-              <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${stat.bg} ${stat.color}`}>
-                <stat.icon size={24} />
+          <Card key={i} p="sm" className="md:col-span-4 flex items-center justify-between bg-surface border border-border">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center ${stat.bg} ${stat.color}`}>
+                <stat.icon size={20} className="sm:size-6" />
               </div>
               <div>
-                <p className="text-xs font-semibold text-text-muted uppercase tracking-wider">{stat.label}</p>
+                <p className="text-[10px] sm:text-xs font-semibold text-text-muted uppercase tracking-wider">{stat.label}</p>
               </div>
             </div>
-            <h3 className={`text-4xl font-display font-bold text-right ${stat.color}`}>{stat.value}</h3>
+            <h3 className={`text-2xl sm:text-4xl font-display font-bold text-right ${stat.color}`}>{stat.value}</h3>
           </Card>
         ))}
       </motion.div>

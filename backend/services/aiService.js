@@ -1,20 +1,39 @@
 /**
- * AI Service — Orchestrates LLM calls
- * 
- * Migrated from Edge Functions. Handles the prompt construction and
- * API calls to Groq and Gemini to generate test questions.
+ * ╔══════════════════════════════════════════════════════════════════╗
+ * ║  AI SERVICE — LLM Orchestration Engine                          ║
+ * ║  Hardened: Deep Zod Validation + Answer Integrity Checks        ║
+ * ║  Providers: Groq (primary) → Gemini (fallback)                  ║
+ * ╚══════════════════════════════════════════════════════════════════╝
  */
 
 const { logger } = require('../utils/logger');
+const { aiAnalysisSchema, aiGenerationSchema, validateAIQuestions } = require('../utils/validators');
+const { supabaseAdmin } = require('../utils/supabaseClient');
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
+// Track token usage in DB
+async function trackTokenUsage(userId, tokens, model) {
+  if (!userId || !tokens) return;
+  try {
+    await supabaseAdmin.from('api_usage').insert({
+      user_id: userId,
+      tokens_used: tokens,
+      model: model
+    });
+  } catch (err) {
+    logger.error({ err, userId }, 'Failed to track token usage');
+  }
+}
+
 /**
- * Helper to make API calls to AI providers with fallback.
+ * Makes API calls to AI providers with automatic fallback.
  */
 async function callAI(systemPrompt, userPrompt, options = {}) {
-  // 1. Try Groq (Llama 3.3) first for speed and json mode
+  const errors = [];
+
+  // 1. Try Groq (Llama 3.3) — fast, supports json_object mode
   if (GROQ_API_KEY) {
     try {
       const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -37,13 +56,56 @@ async function callAI(systemPrompt, userPrompt, options = {}) {
       
       if (res.ok) {
         const data = await res.json();
-        return data.choices?.[0]?.message?.content || '{}';
+        
+        // Track token usage
+        if (data.usage?.total_tokens && options.userId) {
+          await trackTokenUsage(options.userId, data.usage.total_tokens, 'llama-3.3-70b-versatile');
+        }
+
+        const content = data.choices?.[0]?.message?.content;
+        if (content) return content;
+        logger.warn('Groq 70B returned empty content');
       } else {
         const errBody = await res.text();
-        logger.warn({ status: res.status, body: errBody }, 'Groq API call failed');
+        errors.push(`Groq 70B ${res.status}: ${errBody.substring(0, 100)}`);
+        logger.warn({ status: res.status, body: errBody.substring(0, 100) }, 'Groq 70B failed, falling back to 8B-instant...');
+        
+        // Internal Fallback to 8B model (100k TPM limit)
+        const res8b = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${GROQ_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+            model: 'llama-3.1-8b-instant',
+            temperature: options.temperature || 0.3,
+            max_tokens: options.max_tokens || 4000,
+            response_format: { type: 'json_object' },
+          }),
+        });
+        
+        if (res8b.ok) {
+          const data8b = await res8b.json();
+
+          if (data8b.usage?.total_tokens && options.userId) {
+            await trackTokenUsage(options.userId, data8b.usage.total_tokens, 'llama-3.1-8b-instant');
+          }
+
+          const content8b = data8b.choices?.[0]?.message?.content;
+          if (content8b) return content8b;
+        } else {
+          const err8b = await res8b.text();
+          errors.push(`Groq 8B ${res8b.status}: ${err8b.substring(0, 100)}`);
+        }
       }
     } catch (err) {
-      logger.warn({ err }, 'Groq network error, falling back to Gemini...');
+      errors.push(`Groq network: ${err.message}`);
+      logger.warn({ err: err.message }, 'Groq network error, falling back to Gemini...');
     }
   }
 
@@ -66,79 +128,139 @@ async function callAI(systemPrompt, userPrompt, options = {}) {
       
       if (res.ok) {
         const data = await res.json();
-        return data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (content) return content;
+        logger.warn('Gemini returned empty content');
       } else {
         const errBody = await res.text();
-        logger.error({ status: res.status, body: errBody }, 'Gemini API call failed');
+        errors.push(`Gemini ${res.status}: ${errBody.substring(0, 200)}`);
+        logger.error({ status: res.status, body: errBody.substring(0, 200) }, 'Gemini API call failed');
       }
     } catch (err) {
-      logger.error({ err }, 'Gemini network error');
+      errors.push(`Gemini network: ${err.message}`);
+      logger.error({ err: err.message }, 'Gemini network error');
     }
   }
 
-  throw new Error('All AI providers failed');
+  throw new Error(`All AI providers failed. Details: ${errors.join(' | ')}`);
 }
 
 /**
- * Generates test questions based on extracted text.
- * @param {string} text - The extracted text from the PDF.
- * @param {string} difficulty - e.g., 'easy', 'medium', 'hard'.
- * @param {number} numQuestions - Total number of questions to generate.
+ * Safely parses JSON from AI output, stripping markdown fences.
  */
-async function generateTestQuestions(text, difficulty = 'medium', numQuestions = 10) {
-  // Stage 1: Analysis (Truncated to fit context window safely)
-  const contextLimit = 15000; // Allow more context since we are not restricted by Edge memory
-  const context = text.substring(0, contextLimit);
-  
-  const analysisPrompt = `Analyze text and extract JSON: { topics: [], concepts: [{name, definition}], keywords: [], summary: "" }. Context: ${context}`;
-  const analysisRaw = await callAI('You are a JSON extractor. Output valid JSON only.', analysisPrompt, { temperature: 0.1, max_tokens: 2000 });
-  
-  let analysis;
+function safeParseJSON(raw, context = 'AI') {
+  const cleaned = raw
+    .replace(/```json\s*/gi, '')
+    .replace(/```\s*/g, '')
+    .trim();
+
   try {
-    // 🚨 Clean potential markdown formatting
-    const cleaned = analysisRaw.replace(/```json/g, '').replace(/```/g, '').trim();
-    analysis = JSON.parse(cleaned);
+    return JSON.parse(cleaned);
   } catch (e) {
-    logger.error({ raw: analysisRaw }, 'Failed to parse Analysis JSON');
-    throw new Error('AI produced invalid analysis format.');
+    logger.error({ raw: cleaned.substring(0, 500) }, `Failed to parse ${context} JSON`);
+    throw new Error(`${context} produced invalid JSON structure`);
   }
+}
 
-  // Stage 2: Generation
+
+async function generateTestQuestions(documentText, difficulty, numQuestions, userId = null) {
+  // ── Stage 1: Assessment Generation ──────────────────────────────
   const genPrompt = `
-    Generate exactly ${numQuestions} questions based on the following context.
-    Difficulty: ${difficulty}
-    Summary: ${analysis.summary || 'Analyze general topics.'}
-    Context: ${context}
+    Based on the following extracted text, generate an assessment with EXACTLY ${numQuestions} questions.
+    Difficulty level: ${difficulty.toUpperCase()}.
 
-    STRICT JSON FORMAT:
+    TEXT SOURCE:
+    ${documentText}
+
+    OUTPUT FORMAT:
     {
       "mcqs": [{"question": "...", "options": ["A", "B", "C", "D"], "answer": "Exact option text"}],
       "shortAnswers": [{"question": "...", "answer": "..."}]
     }
     
-    Return ONLY valid JSON. No conversational text.
+    RULES:
+    - Each MCQ MUST have exactly 4 options.
+    - Questions must be unique.
+    - Return ONLY valid JSON. No conversational text.
   `;
   
-  const genRaw = await callAI('You are a professional assessment engine. Output valid JSON strictly.', genPrompt, { temperature: 0.7, max_tokens: 8000 });
+  const genRaw = await callAI(
+    'You are a professional assessment engine. Output valid JSON strictly. No markdown fences.',
+    genPrompt,
+    { temperature: 0.7, max_tokens: 4000, userId }
+  );
   
-  let testContent;
-  try {
-    // 🚨 Clean potential markdown formatting
-    const cleaned = genRaw.replace(/```json/g, '').replace(/```/g, '').trim();
-    testContent = JSON.parse(cleaned);
-  } catch (e) {
-    logger.error({ raw: genRaw }, 'Failed to parse Generation JSON');
-    throw new Error('AI produced invalid questions format.');
+  const genParsed = safeParseJSON(genRaw, 'Generation');
+
+  // Validate generation structure with Zod
+  const genResult = aiGenerationSchema.safeParse(genParsed);
+  if (!genResult.success) {
+    logger.error({ errors: genResult.error.errors, raw: JSON.stringify(genParsed).substring(0, 500) }, 'Generation schema validation FAILED');
+    throw new Error('AI produced questions with invalid structure. Please retry.');
   }
 
-  // Flatten the response
-  const questions = [
+  const testContent = genResult.data;
+
+  // ── Stage 2: Flatten + Deep Validate ───────────────────────────
+  const rawQuestions = [
     ...(testContent.mcqs || []).map(q => ({ ...q, type: 'mcq' })),
     ...(testContent.shortAnswers || []).map(q => ({ ...q, type: 'short' })),
     ...(testContent.longAnswers || []).map(q => ({ ...q, type: 'long' })),
   ];
 
-  return questions;
+  // Deep validation: answer-in-options check, deduplication
+  const validatedQuestions = validateAIQuestions(rawQuestions);
+
+  if (validatedQuestions.length === 0) {
+    throw new Error('AI generated zero valid questions after validation. Please retry with different content.');
+  }
+
+  logger.info({
+    requested: numQuestions,
+    generated: rawQuestions.length,
+    afterValidation: validatedQuestions.length,
+  }, 'AI question generation pipeline complete');
+
+  return validatedQuestions;
 }
 
-module.exports = { generateTestQuestions };
+/**
+ * Generates an evaluation analysis for a student's test attempt.
+ */
+async function analyzeTestResults(testData, studentResponses, userId = null) {
+  const prompt = `
+    Analyze the following test attempt and provide a detailed JSON report.
+    
+    Test Data: ${JSON.stringify(testData)}
+    Student Responses: ${JSON.stringify(studentResponses)}
+
+    OUTPUT FORMAT:
+    {
+      "strengths": ["...", "..."],
+      "weaknesses": ["...", "..."],
+      "improvement_plan": "...",
+      "score_percentage": 85,
+      "estimated_understanding_level": "Advanced"
+    }
+  `;
+
+  const rawOut = await callAI(
+    'You are an expert AI grader. Provide strict JSON only. Do not output markdown code blocks.',
+    prompt,
+    { temperature: 0.2, max_tokens: 2000, userId }
+  );
+
+  const parsedOut = safeParseJSON(rawOut, 'Analysis');
+
+  const result = aiAnalysisSchema.safeParse(parsedOut);
+  if (!result.success) {
+    throw new Error('Invalid analysis output from AI');
+  }
+
+  return result.data;
+}
+
+module.exports = {
+  generateTestQuestions,
+  analyzeTestResults,
+};

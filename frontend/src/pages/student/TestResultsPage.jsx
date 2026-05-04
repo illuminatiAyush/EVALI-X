@@ -78,7 +78,7 @@ export default function TestResultsPage() {
         animate={{ opacity: 1, y: 0 }}
       >
         <Card p="0" className="overflow-hidden bg-background">
-          <div className="bg-surface border-b border-border p-12 text-center relative overflow-hidden">
+          <div className="bg-surface border-b border-border p-6 sm:p-12 text-center relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-brand/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
             
             <motion.div
@@ -87,11 +87,11 @@ export default function TestResultsPage() {
               transition={{ delay: 0.2, type: 'spring' }}
               className="inline-flex flex-col items-center justify-center w-40 h-40 rounded-full border-2 border-brand/30 bg-brand/10 mb-6 shadow-cyan-glow relative z-10"
             >
-              <span className="text-5xl font-display font-bold text-brand">{percentage}%</span>
+              <span className="text-3xl sm:text-5xl font-display font-bold text-brand">{percentage}%</span>
               <span className="text-xs font-semibold uppercase tracking-wider text-brand/70 mt-2">Score</span>
             </motion.div>
             
-            <h1 className="text-3xl font-display font-extrabold text-text mb-2 relative z-10">{result.tests?.title || "ASSESSMENT RESULT"}</h1>
+            <h1 className="text-xl sm:text-3xl font-display font-extrabold text-text mb-2 relative z-10">{result.tests?.title || "ASSESSMENT RESULT"}</h1>
             <p className="text-text-muted font-sans font-medium relative z-10">
               {marks} of {total} Questions Correct
             </p>
@@ -134,7 +134,7 @@ export default function TestResultsPage() {
               <div className="w-10 h-10 bg-brand/20 rounded-md border border-brand/30 flex items-center justify-center text-brand">
                 <Sparkles size={20} />
               </div>
-              <h2 className="text-2xl font-display font-bold text-text">AI Feedback</h2>
+              <h2 className="text-xl sm:text-2xl font-display font-bold text-text">AI Feedback</h2>
             </div>
 
             <div className="grid md:grid-cols-2 gap-10 relative z-10">
@@ -221,13 +221,13 @@ export default function TestResultsPage() {
                       <div className="text-sm">
                         <span className="font-semibold text-xs text-text-muted uppercase tracking-wider block mb-1">Your Answer</span>
                         <span className={`font-sans font-bold ${item.is_correct ? 'text-emerald-500' : 'text-danger'}`}>
-                          {item.student_answer || item.student || 'No Answer'}
+                          {(item.student_answer || item.student || 'No Answer').toString().replace(/^[A-Z]\)\s*/i, '')}
                         </span>
                       </div>
                       {!item.is_correct && (
                         <div className="text-sm">
                           <span className="font-semibold text-xs text-text-muted uppercase tracking-wider block mb-1">Correct Answer</span>
-                          <span className="font-sans font-bold text-text">{item.correct_answer || item.correct}</span>
+                          <span className="font-sans font-bold text-text">{(item.correct_answer || item.correct || '').toString().replace(/^[A-Z]\)\s*/i, '')}</span>
                         </div>
                       )}
                     </div>

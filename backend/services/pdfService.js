@@ -21,9 +21,14 @@ async function extractTextFromPDF(fileBuffer) {
     const data = await pdf(fileBuffer);
     let text = data.text;
 
+    logger.info({ 
+      rawTextLength: text.length, 
+      preview: text.substring(0, 100).replace(/\n/g, ' ') 
+    }, 'Raw PDF extraction result before cleaning');
+
     // Stage 1: Smart Text Cleaning
-    // Remove garbage symbols and non-printable characters
-    text = text.replace(/[^\x20-\x7E\n]/g, '');
+    // Remove non-printable control characters (except newline/tab), but PRESERVE Unicode text
+    text = text.replace(/[\x00-\x08\x0B-\x1F\x7F-\x9F]/g, '');
     
     // Normalize spaces and newlines
     text = text.replace(/\s+/g, ' ');

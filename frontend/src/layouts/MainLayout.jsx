@@ -35,17 +35,17 @@ export default function MainLayout() {
   };
 
   const teacherLinks = [
-    { name: 'Dashboard', path: '/teacher/dashboard', icon: LayoutDashboard },
-    { name: 'Assessments', path: '/teacher/create-test', icon: PlusCircle },
-    { name: 'Academic Classes', path: '/teacher/batches', icon: Users },
-    { name: 'Security & Profile', path: '/teacher/profile', icon: User },
+    { name: 'Dashboard', shortName: 'Home', path: '/teacher/dashboard', icon: LayoutDashboard },
+    { name: 'Assessments', shortName: 'Tests', path: '/teacher/create-test', icon: PlusCircle },
+    { name: 'Academic Classes', shortName: 'Classes', path: '/teacher/batches', icon: Users },
+    { name: 'Security & Profile', shortName: 'Profile', path: '/teacher/profile', icon: User },
   ];
 
   const studentLinks = [
-    { name: 'Dashboard', path: '/student/dashboard', icon: LayoutDashboard },
-    { name: 'Transcript', path: '/student/history', icon: BookOpen },
-    { name: 'Join Class', path: '/student/join-batch', icon: KeyRound },
-    { name: 'Account Info', path: '/student/profile', icon: User },
+    { name: 'Dashboard', shortName: 'Home', path: '/student/dashboard', icon: LayoutDashboard },
+    { name: 'Transcript', shortName: 'History', path: '/student/history', icon: BookOpen },
+    { name: 'Join Class', shortName: 'Join', path: '/student/join-batch', icon: KeyRound },
+    { name: 'Account Info', shortName: 'Profile', path: '/student/profile', icon: User },
   ];
 
   const links = role === 'teacher' ? teacherLinks : studentLinks;
@@ -212,7 +212,7 @@ export default function MainLayout() {
       </div>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-surface/90 backdrop-blur-lg border-t border-border px-4 h-16 flex items-center justify-around z-40">
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-surface/90 backdrop-blur-lg border-t border-border px-2 h-16 flex items-center justify-around z-40">
         {links.map((link) => {
           const Icon = link.icon;
           const isActive = location.pathname === link.path;
@@ -220,12 +220,14 @@ export default function MainLayout() {
             <Link
               key={link.path}
               to={link.path}
-              className={`flex flex-col items-center justify-center gap-1 w-full h-full transition-all ${
+              className={`flex flex-col items-center justify-center gap-1 flex-1 min-w-0 h-full transition-all ${
                 isActive ? 'text-brand' : 'text-text-muted'
               }`}
             >
               <Icon size={20} className={isActive ? 'animate-pulse' : ''} />
-              <span className="text-[10px] font-bold uppercase tracking-tighter">{link.name}</span>
+              <span className="text-[9px] font-bold uppercase tracking-tighter truncate w-full text-center px-1">
+                {link.shortName || link.name}
+              </span>
               {isActive && (
                 <motion.div 
                   layoutId="activeTab"

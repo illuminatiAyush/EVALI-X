@@ -2,6 +2,7 @@
  * ╔══════════════════════════════════════════════════════════════════╗
  * ║  EVALIX BACKEND — Fastify Server                               ║
  * ║  Hybrid Architecture: Backend handles AI + PDF + Business Logic ║
+ * ║  Phase 1: Production Hardened (Zod + Rate Limit + Timer)        ║
  * ╚══════════════════════════════════════════════════════════════════╝
  */
 
@@ -9,6 +10,7 @@ require('dotenv').config();
 const fastify = require('fastify');
 const cors = require('@fastify/cors');
 const multipart = require('@fastify/multipart');
+const rateLimit = require('@fastify/rate-limit');
 const logger = require('./utils/logger');
 
 const app = fastify({
@@ -20,13 +22,26 @@ const app = fastify({
 async function start() {
   // CORS — allow frontend origin
   await app.register(cors, {
-    origin: [
-      process.env.FRONTEND_URL || 'http://localhost:5173',
-      'https://evali-x.vercel.app',  // production frontend
-    ],
+    origin: true, // Reflects the origin of the request, allowing localhost, 127.0.0.1, and network IPs
+
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+  });
+
+  // Rate Limiting — global default (60 req/min per IP)
+  await app.register(rateLimit, {
+    max: 60,
+    timeWindow: '1 minute',
+    keyGenerator: (request) => {
+      // Use JWT user ID if available, otherwise fall back to IP
+      return request.user?.id || request.ip;
+    },
+    errorResponseBuilder: (request, context) => ({
+      success: false,
+      error: 'Rate limit exceeded. Please wait before retrying.',
+      retryAfter: Math.ceil(context.ttl / 1000),
+    }),
   });
 
   // Multipart — for file uploads (PDF)
@@ -37,6 +52,9 @@ async function start() {
     },
   });
 
+  // Start Background Workers
+  require('./workers/testWorker');
+
   // ─── Routes ──────────────────────────────────────────────────────
   app.register(require('./routes/aiRoutes'), { prefix: '/api' });
   app.register(require('./routes/testRoutes'), { prefix: '/api' });
@@ -46,6 +64,7 @@ async function start() {
   app.get('/health', async () => ({
     status: 'ok',
     service: 'evalix-backend',
+    version: '1.1.0-hardened',
     timestamp: new Date().toISOString(),
   }));
 
@@ -66,7 +85,7 @@ async function start() {
 
   try {
     await app.listen({ port, host });
-    console.log(`\n  ⚡ Evalix Backend running on http://localhost:${port}\n`);
+    console.log(`\n  ⚡ Evalix Backend v1.1.0 (Hardened) running on http://localhost:${port}\n`);
   } catch (err) {
     app.log.error(err);
     process.exit(1);

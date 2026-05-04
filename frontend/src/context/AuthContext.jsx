@@ -16,25 +16,43 @@ export const AuthProvider = ({ children }) => {
     const initializeAuth = async () => {
       try {
         debug.auth.info('Initializing auth session...');
-        // 🚨 1. Await the session directly from the robust client
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) throw error;
         
-        if (!mounted) return;
+        // Failsafe timeout to force loading screen away after 4 seconds max
+        const failSafeTimer = setTimeout(() => {
+          if (mounted) {
+            debug.auth.error('Auth initialization timed out entirely (4s fail-safe triggered).');
+            setLoading(false);
+          }
+        }, 4000);
 
-        if (session?.user) {
+        // 🚨 1. Await the session directly from the robust client with a timeout
+        const sessionPromise = supabase.auth.getSession();
+        const sessionTimeout = new Promise((_, rej) => setTimeout(() => rej(new Error('Session fetch timed out')), 3000));
+        
+        let sessionData = { data: { session: null }, error: null };
+        try {
+          sessionData = await Promise.race([sessionPromise, sessionTimeout]);
+        } catch (err) {
+          debug.auth.warn('Session fetch timed out, falling back to null session.');
+        }
+
+        const { data: { session }, error } = sessionData;
+        
+        if (!error && session?.user && mounted) {
           setUser(session.user);
-          // 🚨 2. Fetch role with a strict timeout to prevent hangs
+          // 🚨 2. Fetch role with a strict timeout
           const profilePromise = supabase.from('profiles').select('role').eq('id', session.user.id).single();
-          const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 2000));
+          const roleTimeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 2000));
           
           try {
-            const { data } = await Promise.race([profilePromise, timeoutPromise]);
+            const { data } = await Promise.race([profilePromise, roleTimeoutPromise]);
             if (mounted) setRole(data?.role || session.user.user_metadata?.role || 'student');
           } catch (e) {
             if (mounted) setRole(session.user.user_metadata?.role || 'student');
           }
         }
+        
+        clearTimeout(failSafeTimer);
       } catch (error) {
         debug.auth.error('Auth Init Error:', error.message);
       } finally {
@@ -55,8 +73,16 @@ export const AuthProvider = ({ children }) => {
       if (session?.user) {
         setUser(session.user);
         if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'INITIAL_SESSION') {
-            const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
-            if (mounted) setRole(profile?.role || session.user.user_metadata?.role || 'student');
+            // Apply strict timeout here as well
+            const profilePromise = supabase.from('profiles').select('role').eq('id', session.user.id).single();
+            const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 2000));
+            
+            try {
+              const { data: profile } = await Promise.race([profilePromise, timeoutPromise]);
+              if (mounted) setRole(profile?.role || session.user.user_metadata?.role || 'student');
+            } catch (err) {
+              if (mounted) setRole(session.user.user_metadata?.role || 'student');
+            }
         } else {
             if (mounted) setRole((prev) => prev || session.user.user_metadata?.role || 'student');
         }

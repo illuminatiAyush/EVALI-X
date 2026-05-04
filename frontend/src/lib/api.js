@@ -39,7 +39,29 @@ export const apiService = {
       throw new Error(data.error || 'Generation failed');
     }
 
-    return { success: true, data: data.data.questions };
+    return { success: true, jobId: data.jobId };
+  },
+
+  /**
+   * Polls the background job status.
+   */
+  async getGenerationStatus(jobId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Unauthorized');
+
+    const response = await fetch(`${BACKEND_URL}/generate-test/status/${jobId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`
+      }
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to get status');
+    }
+
+    return data;
   },
 
   /**
@@ -181,118 +203,60 @@ export const apiService = {
     return testData;
   },
 
-  // ─── Attempt Lifecycle ─────────────────────────────────────────
+  // ─── Attempt Lifecycle (Backend-Driven) ──────────────────────────
 
   /**
-   * Starts a test attempt.
+   * Starts or resumes a test attempt via backend.
+   * Backend calculates ends_at and returns questions WITHOUT answers.
    */
   async startAttempt(testId) {
     const { data: { session } } = await supabase.auth.getSession();
-    const user = session?.user;
-    if (!user) throw new Error('Unauthorized');
+    if (!session) throw new Error('Unauthorized');
 
-    // Get test details
-    const { data: test, error: testError } = await supabase
-      .from('tests')
-      .select('*')
-      .eq('id', testId)
-      .single();
+    const response = await fetch(`${BACKEND_URL}/start-attempt`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ testId }),
+    });
 
-    if (testError || !test) throw new Error('Test not found');
-    if (test.status !== 'active') throw new Error('This test is not currently active');
-
-    // Check for existing attempt
-    const { data: existingAttempt } = await supabase
-      .from('attempts')
-      .select('*')
-      .eq('student_id', user.id)
-      .eq('test_id', testId)
-      .single();
-
-    if (existingAttempt) {
-      const { data: questions } = await supabase
-        .from('questions')
-        .select('id, question, options, type, sort_order')
-        .eq('test_id', testId)
-        .order('sort_order');
-
-      return {
-        attempt: existingAttempt,
-        questions: questions || [],
-        remaining_seconds: Math.max(0, Math.floor((new Date(existingAttempt.ends_at) - new Date()) / 1000))
-      };
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'Failed to start attempt');
     }
 
-    // Create new attempt
-    const durationMs = (test.duration_minutes || 30) * 60 * 1000;
-    const endsAt = new Date(Date.now() + durationMs).toISOString();
-
-    const { data: attempt, error: attemptError } = await supabase
-      .from('attempts')
-      .insert({
-        student_id: user.id,
-        test_id: testId,
-        status: 'in_progress',
-        answers: {},
-        ends_at: endsAt
-      })
-      .select()
-      .single();
-
-    if (attemptError) {
-      console.error('Attempt creation error:', attemptError);
-      throw new Error(attemptError.message || 'Failed to start attempt');
-    }
-
-    // Get questions
-    const { data: questions } = await supabase
-      .from('questions')
-      .select('id, question, options, type, sort_order')
-      .eq('test_id', testId)
-      .order('sort_order');
-
-    return {
-      attempt,
-      questions: questions || [],
-      remaining_seconds: Math.floor(durationMs / 1000)
-    };
+    return result.data;
   },
 
   /**
-   * Saves an answer.
+   * Saves a single answer via backend (server-side time validation).
    */
   async saveAnswer(attemptId, questionId, answerValue) {
     const { data: { session } } = await supabase.auth.getSession();
-    const user = session?.user;
-    
-    // Get current attempt
-    const { data: attempt, error: attemptError } = await supabase
-      .from('attempts')
-      .select('answers, status, ends_at')
-      .eq('id', attemptId)
-      .eq('student_id', user.id)
-      .single();
+    if (!session) throw new Error('Unauthorized');
 
-    if (attemptError || !attempt) throw new Error('Attempt not found');
-    if (attempt.status !== 'in_progress') throw new Error('Attempt already submitted');
-    if (new Date(attempt.ends_at) < new Date()) throw new Error('Time expired');
+    const response = await fetch(`${BACKEND_URL}/save-answer`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ attemptId, questionId, answer: answerValue }),
+    });
 
-    // Update answers
-    const updatedAnswers = { ...attempt.answers, [questionId]: answerValue };
-    
-    const { data: updated, error: updateError } = await supabase
-      .from('attempts')
-      .update({ answers: updatedAnswers })
-      .eq('id', attemptId)
-      .select()
-      .single();
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'Failed to save answer');
+    }
 
-    if (updateError) throw new Error('Failed to save answer');
-    return updated;
+    return result;
   },
 
   /**
    * Records a violation (e.g., tab switch).
+   * Still uses Supabase directly — lightweight RLS-protected operation.
    */
   async recordViolation(attemptId) {
     const { data: { session } } = await supabase.auth.getSession();
@@ -310,6 +274,18 @@ export const apiService = {
     const violations = (attempt.answers?._violations || 0) + 1;
     const updatedAnswers = { ...attempt.answers, _violations: violations };
 
+    // Auto-submit on 3+ violations
+    if (violations >= 3) {
+      const { data: updated } = await supabase
+        .from('attempts')
+        .update({ answers: updatedAnswers, status: 'completed', submitted_at: new Date().toISOString() })
+        .eq('id', attemptId)
+        .select()
+        .single();
+
+      return { ...updated, auto_submitted: true, violation_count: violations };
+    }
+
     const { data: updated, error: updateError } = await supabase
       .from('attempts')
       .update({ answers: updatedAnswers })
@@ -318,72 +294,36 @@ export const apiService = {
       .single();
 
     if (updateError) throw new Error('Failed to record violation');
-    return updated;
+    return { ...updated, auto_submitted: false, violation_count: violations };
   },
 
   /**
-   * Submits an attempt.
+   * Submits an attempt via backend (server-side scoring).
+   * Backend calculates marks — frontend NEVER sees answer keys.
    */
   async submitAttempt(attemptId, answers) {
     const { data: { session } } = await supabase.auth.getSession();
-    const user = session?.user;
-    if (!user) throw new Error('Unauthorized');
+    if (!session) throw new Error('Unauthorized');
 
-    // Fetch the attempt and test to calculate marks
-    const { data: attempt } = await supabase
-      .from('attempts')
-      .select('*, tests(*)')
-      .eq('id', attemptId)
-      .single();
+    const response = await fetch(`${BACKEND_URL}/submit-attempt`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ attemptId, answers }),
+    });
 
-    if (!attempt) throw new Error('Attempt not found');
-    if (attempt.status !== 'in_progress') throw new Error('This attempt is already submitted');
-
-    // Basic scoring for MCQs (In a real app, backend would do this to prevent cheating)
-    // For now, doing it client side for demonstration
-    const { data: questions } = await supabase
-      .from('questions')
-      .select('id, answer')
-      .eq('test_id', attempt.test_id);
-
-    let marks = 0;
-    if (questions) {
-      questions.forEach(q => {
-        if (answers[q.id] === q.answer) {
-          marks++; // Simplified scoring
-        }
-      });
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'Failed to submit attempt');
     }
 
-    // Update attempt
-    await supabase
-      .from('attempts')
-      .update({
-        status: 'completed',
-        answers: answers,
-        submitted_at: new Date().toISOString()
-      })
-      .eq('id', attemptId);
-
-    // Save result
-    const { data: result, error } = await supabase
-      .from('results')
-      .insert({
-        attempt_id: attemptId,
-        student_id: user.id,
-        test_id: attempt.test_id,
-        marks: marks,
-        feedback: 'Auto-graded'
-      })
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message || 'Failed to save results');
-    return result;
+    return result.data.result;
   },
 
   /**
-   * Updates a test.
+   * Updates a test (direct Supabase — teacher only, RLS protected).
    */
   async updateTest(id, updates) {
     const { data: { session } } = await supabase.auth.getSession();
@@ -402,43 +342,27 @@ export const apiService = {
   },
 
   /**
-   * Changes the status of a test (e.g., draft -> active, active -> ended)
+   * Changes test status via backend (handles force-ending attempts server-side).
    */
   async updateTestStatus(id, action) {
     const { data: { session } } = await supabase.auth.getSession();
-    const user = session?.user;
-    if (!user) throw new Error('Unauthorized');
+    if (!session) throw new Error('Unauthorized');
 
-    const updates = {};
-    if (action === 'publish') {
-      updates.status = 'scheduled'; // Or active if no start time
-    } else if (action === 'start') {
-      updates.status = 'active';
-      updates.start_time = new Date().toISOString();
-    } else if (action === 'end') {
-      updates.status = 'ended';
-      updates.end_time = new Date().toISOString();
-      // Also automatically submit any active attempts
-      const { error: attemptsError } = await supabase
-        .from('attempts')
-        .update({ status: 'forced_end' })
-        .eq('test_id', id)
-        .eq('status', 'in_progress');
-      if (attemptsError) console.error('Failed to force end attempts:', attemptsError);
-    } else {
-      throw new Error('Invalid action');
+    const response = await fetch(`${BACKEND_URL}/test-status/${id}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ action }),
+    });
+
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || `Failed to ${action} test`);
     }
 
-    const { data: test, error } = await supabase
-      .from('tests')
-      .update(updates)
-      .eq('id', id)
-      .eq('created_by', user.id)
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message || `Failed to ${action} test`);
-    return test;
+    return result.data;
   },
 
   /**

@@ -1,11 +1,11 @@
 /**
- * Test Service — Backend Business Logic
- * 
- * Handles DB interactions for assessments, utilizing the user-scoped
- * Supabase client to respect RLS policies and ensure data security.
+ * ╔══════════════════════════════════════════════════════════════════╗
+ * ║  TEST SERVICE — Backend Business Logic                          ║
+ * ║  Hardened: Proper error handling + test lifecycle                ║
+ * ╚══════════════════════════════════════════════════════════════════╝
  */
 
-const { createUserClient } = require('../utils/supabaseClient');
+const { createUserClient, supabaseAdmin } = require('../utils/supabaseClient');
 const { logger } = require('../utils/logger');
 
 class TestService {
@@ -67,8 +67,6 @@ class TestService {
 
       if (qError) {
         logger.error({ err: qError, testId: test.id }, 'Failed to insert questions');
-        // We don't throw here to avoid leaving an orphaned test, but we log the error.
-        // In a strict transactional system, we would rollback.
       }
     }
 
@@ -96,6 +94,53 @@ class TestService {
     }
 
     return { success: true };
+  }
+
+  /**
+   * Updates test status (publish/start/end).
+   * Uses user-scoped client to respect RLS.
+   */
+  static async updateTestStatus(token, userId, testId, action) {
+    const supabase = createUserClient(token);
+
+    const updates = {};
+    if (action === 'publish') {
+      updates.status = 'scheduled';
+    } else if (action === 'start') {
+      updates.status = 'active';
+      updates.start_time = new Date().toISOString();
+    } else if (action === 'end') {
+      updates.status = 'ended';
+      updates.end_time = new Date().toISOString();
+
+      // Force-end all active attempts using admin client (bypasses RLS)
+      const { error: attemptsError } = await supabaseAdmin
+        .from('attempts')
+        .update({ status: 'forced_end', submitted_at: new Date().toISOString() })
+        .eq('test_id', testId)
+        .eq('status', 'in_progress');
+
+      if (attemptsError) {
+        logger.error({ err: attemptsError, testId }, 'Failed to force-end active attempts');
+      } else {
+        logger.info({ testId }, 'All active attempts force-ended');
+      }
+    } else {
+      throw new Error('Invalid action');
+    }
+
+    const { data: test, error } = await this.withTimeout(
+      supabase
+        .from('tests')
+        .update(updates)
+        .eq('id', testId)
+        .eq('created_by', userId)
+        .select()
+        .single()
+    );
+
+    if (error) throw new Error(error.message || `Failed to ${action} test`);
+    return test;
   }
 }
 

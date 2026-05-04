@@ -280,7 +280,7 @@ export default function TestAttemptPage() {
         </div>
       </nav>
 
-      <div className="flex-1 flex flex-col items-center py-12 px-6">
+      <div className="flex-1 flex flex-col items-center py-6 sm:py-12 px-4 sm:px-6">
         <div className="max-w-3xl w-full">
           {/* Progress Bar */}
           <div className="w-full h-1.5 bg-surface border border-border rounded-full mb-12 flex overflow-hidden">
@@ -308,7 +308,7 @@ export default function TestAttemptPage() {
                     <span className="w-1.5 h-1.5 bg-brand rounded-full"></span>
                     Question {currentQuestion + 1}
                   </span>
-                  <h2 className="text-2xl font-display font-bold text-text leading-snug">
+                  <h2 className="text-xl sm:text-2xl font-display font-bold text-text leading-snug">
                     {q.question}
                   </h2>
                 </div>
@@ -319,19 +319,19 @@ export default function TestAttemptPage() {
                       <button
                         key={idx}
                         onClick={() => handleAnswer(q.id, option)}
-                        className={`w-full p-6 rounded-xl border text-left font-sans font-medium transition-all flex items-center gap-4 group ${
+                        className={`w-full p-4 sm:p-6 rounded-xl border text-left font-sans font-medium transition-all flex items-center gap-3 sm:gap-4 group ${
                           answers[currentQuestion] === option 
                             ? 'border-brand/50 bg-brand/10 text-brand shadow-sm' 
                             : 'border-border bg-background text-text-muted hover:border-text-muted hover:bg-surface'
                         }`}
                       >
-                        <div className={`w-8 h-8 rounded-md border flex items-center justify-center font-display text-sm font-bold transition-colors ${
+                        <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md border flex items-center justify-center font-display text-xs sm:text-sm font-bold transition-colors ${
                           answers[currentQuestion] === option ? 'border-brand bg-brand text-background' : 'border-border bg-surface text-text-muted'
                         }`}>
                           {String.fromCharCode(65 + idx)}
                         </div>
-                        <span className="flex-1">{option}</span>
-                        {answers[currentQuestion] === option && <CheckCircle2 size={20} className="text-brand" />}
+                        <span className="flex-1 text-sm sm:text-base">{option.replace(/^[A-Z]\)\s*/i, '')}</span>
+                        {answers[currentQuestion] === option && <CheckCircle2 size={18} className="text-brand sm:size-5" />}
                       </button>
                     ))
                   ) : (

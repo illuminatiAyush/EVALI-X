@@ -116,12 +116,29 @@ export default function CreateTestPage() {
     setError('');
 
     try {
-      // Direct pass to backend — no local extraction needed
+      // Direct pass to backend queue
       const response = await apiService.generateTest(file, formData.difficulty, formData.numQuestions);
+      const jobId = response.jobId;
+      
+      let finalQuestions = null;
+
+      // Poll until complete
+      while (!finalQuestions) {
+        await new Promise(r => setTimeout(r, 2000)); // Poll every 2 seconds
+        const statusRes = await apiService.getGenerationStatus(jobId);
+        
+        if (statusRes.status === 'completed') {
+          finalQuestions = statusRes.data.questions;
+        } else if (statusRes.status === 'failed') {
+          throw new Error(statusRes.error || 'Background AI generation failed');
+        } else {
+          // Update toast with background progress
+          toast.loading(`Processing... ${statusRes.progress || 0}%`, { id: toastId });
+        }
+      }
 
       // Flatten AI output into a single questions array
-      const aiQuestions = response.data || [];
-      const questions = aiQuestions.map(q => ({ ...q, type: q.type || 'mcq' }));
+      const questions = finalQuestions.map(q => ({ ...q, type: q.type || 'mcq' }));
 
       const test = await apiService.createTest({
         title: file.name.replace('.pdf', '') || 'AI_DIAGNOSTIC_PROTOCOL',
@@ -171,7 +188,7 @@ export default function CreateTestPage() {
             <motion.h2
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-4xl font-display font-extrabold tracking-tight mb-4"
+              className="text-2xl sm:text-4xl font-display font-extrabold tracking-tight mb-4"
             >
               Architecting Assessment...
             </motion.h2>
@@ -180,11 +197,11 @@ export default function CreateTestPage() {
               <p className="text-text-muted font-sans font-medium">
                 Our AI is analyzing your syllabus framework to construct high-fidelity questions.
               </p>
-              <div className="flex items-center justify-center gap-4 text-xs font-semibold text-brand uppercase tracking-wider mt-6">
-                <span className="flex items-center gap-1"><Dna size={14} /> Reading PDF</span>
-                <span className="w-1 h-1 bg-brand rounded-full"></span>
+              <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 text-[10px] sm:text-xs font-semibold text-brand uppercase tracking-wider mt-6">
+                <span className="flex items-center gap-1"><Dna size={14} /> Reading</span>
+                <span className="w-1 h-1 bg-brand rounded-full hidden sm:block"></span>
                 <span className="flex items-center gap-1"><Sparkles size={14} /> Generating</span>
-                <span className="w-1 h-1 bg-brand rounded-full"></span>
+                <span className="w-1 h-1 bg-brand rounded-full hidden sm:block"></span>
                 <span className="flex items-center gap-1"><Zap size={14} /> Finalizing</span>
               </div>
             </div>
