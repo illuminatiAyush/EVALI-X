@@ -21,7 +21,7 @@ export default function ProtectedRoute({ allowedRole }) {
   }, [loading, user, role]);
 
   // STICKY LOADING with Diagnostic Output
-  if (loading || (user && !role)) {
+  if (loading) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-slate-900 z-[9999] p-4">
         {!isStuck ? (

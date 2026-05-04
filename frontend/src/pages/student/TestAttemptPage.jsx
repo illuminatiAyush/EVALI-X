@@ -43,7 +43,19 @@ export default function TestAttemptPage() {
       setAttempt(data.attempt);
       attemptRef.current = data.attempt;
       setQuestions(data.questions);
-      setAnswers(data.attempt.answers || {});
+      
+      // 1. Recover answers from server first
+      const serverAnswers = data.attempt.answers || {};
+      
+      // 2. Recover from localStorage for immediate reload consistency
+      const storageKey = `evalix_attempt_${data.attempt.id}`;
+      const localData = JSON.parse(localStorage.getItem(storageKey) || '{}');
+      
+      setAnswers({ ...serverAnswers, ...(localData.answers || {}) });
+      
+      if (localData.currentQuestion !== undefined) {
+        setCurrentQuestion(localData.currentQuestion);
+      }
       
       if (data.attempt.ends_at) {
         const remaining = Math.floor((new Date(data.attempt.ends_at) - new Date()) / 1000);
@@ -63,6 +75,19 @@ export default function TestAttemptPage() {
       setLoading(false);
     }
   };
+
+  // 🚨 Persistence Layer: Save to LocalStorage whenever state changes
+  useEffect(() => {
+    if (!attempt || isSubmitted) return;
+    
+    const storageKey = `evalix_attempt_${attempt.id}`;
+    const stateToSave = {
+      currentQuestion,
+      answers,
+      updatedAt: new Date().toISOString()
+    };
+    localStorage.setItem(storageKey, JSON.stringify(stateToSave));
+  }, [currentQuestion, answers, attempt, isSubmitted]);
 
   useEffect(() => {
     if (!attempt || isSubmitted) return;
@@ -144,6 +169,10 @@ export default function TestAttemptPage() {
     setIsSubmitting(true);
     try {
       await apiService.submitAttempt(attempt.id, reason);
+      
+      // Clear persistence on successful submission
+      localStorage.removeItem(`evalix_attempt_${attempt.id}`);
+      
       setIsSubmitted(true);
       toast.success("Assessment submitted successfully.");
       
