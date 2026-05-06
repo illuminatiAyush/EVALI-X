@@ -180,7 +180,7 @@ export default function BatchManagementPage() {
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.95 }}
                     >
-                      <Card p="md" interactive className="h-full flex flex-col justify-between border-l-4 border-l-transparent hover:border-l-purple-500">
+                      <Card p="md" interactive className="h-full flex flex-col justify-between border-l-4 border-l-transparent hover:border-l-zinc-900">
                         <div className="mb-4">
                           <div className="flex justify-between items-start mb-2">
                             <h3 className="font-display font-bold text-lg text-text break-words pr-2">{batch.name}</h3>
@@ -197,7 +197,7 @@ export default function BatchManagementPage() {
                             {batch.student_count !== undefined && (
                               <>
                                 <span className="w-1 h-1 rounded-full bg-border hidden sm:block"></span>
-                                <span className="text-xs font-semibold text-purple-500 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-sm uppercase tracking-wider">
+                                <span className="text-xs font-semibold text-zinc-900 bg-zinc-900/10 border border-zinc-900/20 px-2 py-0.5 rounded-sm uppercase tracking-wider">
                                   {batch.student_count} Students
                                 </span>
                               </>

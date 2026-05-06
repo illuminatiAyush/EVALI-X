@@ -7,19 +7,16 @@ import {
   LayoutDashboard, 
   PlusCircle, 
   BookOpen, 
-  Settings, 
   Bell,
-  Search,
-  BrainCircuit,
+  GraduationCap,
   ChevronRight,
   Users,
   KeyRound,
-  TerminalSquare,
   Menu,
   X,
-  User
+  User,
+  Sparkles
 } from 'lucide-react';
-import Button from '../components/ui/Button';
 
 export default function MainLayout() {
   const { role, logout, user } = useAuth();
@@ -36,38 +33,41 @@ export default function MainLayout() {
 
   const teacherLinks = [
     { name: 'Dashboard', shortName: 'Home', path: '/teacher/dashboard', icon: LayoutDashboard },
-    { name: 'Assessments', shortName: 'Tests', path: '/teacher/create-test', icon: PlusCircle },
-    { name: 'Academic Classes', shortName: 'Classes', path: '/teacher/batches', icon: Users },
-    { name: 'Security & Profile', shortName: 'Profile', path: '/teacher/profile', icon: User },
+    { name: 'Create Test', shortName: 'Create', path: '/teacher/create-test', icon: PlusCircle },
+    { name: 'My Classes', shortName: 'Classes', path: '/teacher/batches', icon: Users },
+    { name: 'Profile', shortName: 'Profile', path: '/teacher/profile', icon: User },
   ];
 
   const studentLinks = [
     { name: 'Dashboard', shortName: 'Home', path: '/student/dashboard', icon: LayoutDashboard },
-    { name: 'Transcript', shortName: 'History', path: '/student/history', icon: BookOpen },
+    { name: 'History', shortName: 'History', path: '/student/history', icon: BookOpen },
     { name: 'Join Class', shortName: 'Join', path: '/student/join-batch', icon: KeyRound },
-    { name: 'Account Info', shortName: 'Profile', path: '/student/profile', icon: User },
+    { name: 'Profile', shortName: 'Profile', path: '/student/profile', icon: User },
   ];
 
   const links = role === 'teacher' ? teacherLinks : studentLinks;
 
+  const roleColor = role === 'teacher' ? 'blue' : 'emerald';
+  const roleBg = role === 'teacher' ? 'bg-teal-50 text-teal-600' : 'bg-emerald-50 text-emerald-600';
+  const roleLabel = role === 'teacher' ? 'Teacher' : 'Student';
+
   return (
-    <div className="min-h-screen bg-background text-text transition-colors duration-300 flex flex-col lg:flex-row font-sans noise-bg pb-20 lg:pb-0">
-      {/* Desktop Sidebar */}
-      <aside className="w-72 bg-surface border-r border-border hidden lg:flex flex-col sticky top-0 h-screen z-40">
-        <div className="absolute inset-0 cyber-grid opacity-10 pointer-events-none"></div>
-        <div className="p-8 relative z-10">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-brand rounded-xl flex items-center justify-center text-white shadow-cyan-glow">
-              <BrainCircuit size={24} />
+    <div className="min-h-screen bg-background text-text flex flex-col lg:flex-row font-sans pb-16 lg:pb-0">
+      {/* ─── Desktop Sidebar ─── */}
+      <aside className="w-64 bg-white border-r border-slate-100 hidden lg:flex flex-col sticky top-0 h-screen z-40">
+        {/* Logo */}
+        <div className="p-6 pb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl flex items-center justify-center text-white shadow-md">
+              <GraduationCap size={20} />
             </div>
-            <span className="text-xl font-display font-bold tracking-tight">Evalix Core</span>
+            <span className="text-lg font-display font-bold text-slate-800 tracking-tight">Evalix</span>
           </div>
         </div>
 
-        <nav className="flex-1 px-4 space-y-1.5 relative z-10">
-          <div className="px-4 mb-4">
-            <span className="text-xs font-mono font-bold text-text-muted uppercase tracking-widest">SYSTEM_MENU</span>
-          </div>
+        {/* Nav Links */}
+        <nav className="flex-1 px-3 space-y-1">
+          <p className="px-3 mb-3 text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Navigation</p>
           {links.map((link) => {
             const Icon = link.icon;
             const isActive = location.pathname === link.path;
@@ -75,92 +75,93 @@ export default function MainLayout() {
               <Link
                 key={link.path}
                 to={link.path}
-                className={`flex items-center justify-between px-4 py-3.5 rounded-xl transition-all group font-medium ${
+                className={`flex items-center justify-between px-3 py-2.5 rounded-xl transition-all group text-[13px] font-medium ${
                   isActive 
-                    ? 'bg-brand/10 border border-brand/20 text-brand shadow-cyan-glow' 
-                    : 'text-text-muted hover:bg-background border border-transparent hover:border-border hover:text-text'
+                    ? 'bg-teal-50 text-teal-600 shadow-sm' 
+                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <Icon size={20} className={isActive ? 'text-brand' : 'text-text-muted group-hover:text-text'} />
+                <div className="flex items-center gap-2.5">
+                  <Icon size={18} strokeWidth={isActive ? 2.2 : 1.8} />
                   <span>{link.name}</span>
                 </div>
-                {isActive && <ChevronRight size={16} className="opacity-70" />}
+                {isActive && <ChevronRight size={14} className="text-teal-400" />}
               </Link>
             );
           })}
         </nav>
 
-        <div className="p-6 border-t border-border relative z-10 bg-surface/80 backdrop-blur-sm">
-          <div className="p-4 bg-background border border-border rounded-xl flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-display font-bold text-lg ${role === 'teacher' ? 'bg-purple-500/10 text-purple-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+        {/* User Card */}
+        <div className="p-4 border-t border-slate-100">
+          <div className="p-3 bg-slate-50 rounded-xl flex items-center gap-2.5">
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-display font-bold text-sm ${roleBg}`}>
               {user?.email?.[0].toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-text truncate">{user?.email?.split('@')[0]}</p>
-              <p className="text-[10px] font-mono text-text-muted uppercase tracking-wider">{role}_OP</p>
+              <p className="text-sm font-semibold text-slate-700 truncate">{user?.email?.split('@')[0]}</p>
+              <p className="text-[10px] font-medium text-slate-400 capitalize">{roleLabel}</p>
             </div>
             <button 
               onClick={handleLogout}
-              className="p-2 text-text-muted hover:text-danger hover:bg-danger/10 rounded-lg transition-all"
-              title="Terminate Session"
+              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+              title="Log out"
             >
-              <LogOut size={18} />
+              <LogOut size={16} />
             </button>
           </div>
         </div>
       </aside>
 
-      {/* Mobile Header */}
-      <header className="lg:hidden h-16 bg-surface/80 backdrop-blur-md border-b border-border sticky top-0 z-30 px-4 flex items-center justify-between">
+      {/* ─── Mobile Header ─── */}
+      <header className="lg:hidden h-14 bg-white/90 backdrop-blur-md border-b border-slate-100 sticky top-0 z-30 px-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-brand rounded-lg flex items-center justify-center text-white">
-            <BrainCircuit size={18} />
+          <div className="w-7 h-7 bg-gradient-to-br from-teal-500 to-teal-600 rounded-lg flex items-center justify-center text-white">
+            <GraduationCap size={15} />
           </div>
-          <span className="text-lg font-display font-bold tracking-tight">Evalix</span>
+          <span className="text-base font-display font-bold text-slate-800">Evalix</span>
         </div>
         
-        <div className="flex items-center gap-2">
-          <button className="p-2 text-text-muted">
-            <Bell size={20} />
+        <div className="flex items-center gap-1.5">
+          <button className="p-2 text-slate-400 hover:text-slate-600 rounded-lg">
+            <Bell size={18} />
           </button>
           <button 
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2 text-text-muted bg-background border border-border rounded-lg"
+            className="p-2 text-slate-500 bg-slate-50 border border-slate-100 rounded-lg"
           >
-            {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            {isMobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
         </div>
       </header>
 
-      {/* Mobile Dropdown Menu */}
+      {/* Mobile Dropdown */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="lg:hidden fixed inset-x-0 top-16 bg-surface border-b border-border z-20 p-4 shadow-xl"
+            exit={{ opacity: 0, y: -10 }}
+            className="lg:hidden fixed inset-x-0 top-14 bg-white border-b border-slate-100 z-20 p-4 shadow-lg"
           >
-            <div className="flex items-center gap-3 p-3 bg-background border border-border rounded-xl mb-4">
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-display font-bold ${role === 'teacher' ? 'bg-purple-500/10 text-purple-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+            <div className="flex items-center gap-2.5 p-3 bg-slate-50 rounded-xl mb-3">
+              <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-display font-bold text-sm ${roleBg}`}>
                 {user?.email?.[0].toUpperCase()}
               </div>
               <div className="flex-1">
-                <p className="text-sm font-bold text-text">{user?.email}</p>
-                <p className="text-[10px] font-mono text-text-muted uppercase tracking-wider">{role}_OP</p>
+                <p className="text-sm font-semibold text-slate-700">{user?.email?.split('@')[0]}</p>
+                <p className="text-[10px] font-medium text-slate-400 capitalize">{roleLabel}</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <Link to={`/${role}/profile`} onClick={() => setIsMobileMenuOpen(false)} className="flex items-center justify-center gap-2 p-3 text-sm font-medium text-text-muted bg-background rounded-lg border border-border transition-all">
-                <User size={18} />
+              <Link to={`/${role}/profile`} onClick={() => setIsMobileMenuOpen(false)} className="flex items-center justify-center gap-2 p-2.5 text-xs font-medium text-slate-500 bg-slate-50 rounded-lg border border-slate-100">
+                <User size={16} />
                 <span>Account</span>
               </Link>
               <button 
                 onClick={handleLogout}
-                className="flex items-center justify-center gap-2 p-3 text-sm font-medium text-danger bg-danger/5 rounded-lg border border-danger/10 transition-all"
+                className="flex items-center justify-center gap-2 p-2.5 text-xs font-medium text-red-500 bg-red-50 rounded-lg border border-red-100"
               >
-                <LogOut size={18} />
+                <LogOut size={16} />
                 <span>Logout</span>
               </button>
             </div>
@@ -168,51 +169,40 @@ export default function MainLayout() {
         )}
       </AnimatePresence>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 relative z-10">
-        {/* Desktop Header */}
-        <header className="hidden lg:flex h-20 bg-background/80 backdrop-blur-md border-b border-border sticky top-0 z-30 px-8 items-center justify-between">
-          <div className="flex items-center gap-4 flex-1 max-w-xl">
-          </div>
-
-          <div className="flex items-center gap-md">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-surface border border-border">
-              <TerminalSquare size={14} className="text-brand" />
-              <span className="text-[10px] font-mono font-bold text-text-muted uppercase tracking-widest">Connected</span>
+      {/* ─── Main Content ─── */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Desktop Top Bar */}
+        <header className="hidden lg:flex h-16 bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-30 px-8 items-center justify-between">
+          <div />
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-100">
+              <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+              <span className="text-[10px] font-semibold text-emerald-600">Online</span>
             </div>
-            <button className="p-2.5 text-text-muted hover:bg-surface rounded-xl relative transition-all border border-transparent hover:border-border">
-              <Bell size={20} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-brand rounded-full shadow-cyan-glow"></span>
+            <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl relative transition-all">
+              <Bell size={18} />
+              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-orange-400 rounded-full" />
             </button>
-            <Link to={`/${role}/profile`} className="p-2.5 text-text-muted hover:bg-surface rounded-xl transition-all border border-transparent hover:border-border">
-              <User size={20} />
+            <Link to={`/${role}/profile`} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-all">
+              <User size={18} />
             </Link>
-            <div className="h-8 w-px bg-border mx-2"></div>
-            <div className="flex items-center gap-3 pl-2">
-              <div className="text-right">
-                <p className="text-sm font-display font-bold text-text leading-none mb-1">EVALIX CORE</p>
-                <p className={`text-[10px] font-mono font-bold uppercase tracking-wider ${role === 'teacher' ? 'text-purple-500' : 'text-emerald-500'}`}>
-                  {role === 'teacher' ? 'Instructor Auth' : 'Candidate Auth'}
-                </p>
-              </div>
-            </div>
           </div>
         </header>
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-10 relative">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8">
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="max-w-7xl mx-auto w-full"
+            transition={{ duration: 0.3 }}
+            className="max-w-6xl mx-auto w-full"
           >
             <Outlet />
           </motion.div>
         </main>
       </div>
 
-      {/* Mobile Bottom Navigation */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-surface/90 backdrop-blur-lg border-t border-border px-2 h-16 flex items-center justify-around z-40">
+      {/* ─── Mobile Bottom Nav ─── */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-slate-100 px-2 h-16 flex items-center justify-around z-40 safe-bottom">
         {links.map((link) => {
           const Icon = link.icon;
           const isActive = location.pathname === link.path;
@@ -220,18 +210,18 @@ export default function MainLayout() {
             <Link
               key={link.path}
               to={link.path}
-              className={`flex flex-col items-center justify-center gap-1 flex-1 min-w-0 h-full transition-all ${
-                isActive ? 'text-brand' : 'text-text-muted'
+              className={`flex flex-col items-center justify-center gap-0.5 flex-1 min-w-0 h-full transition-all relative ${
+                isActive ? 'text-teal-500' : 'text-slate-400'
               }`}
             >
-              <Icon size={20} className={isActive ? 'animate-pulse' : ''} />
-              <span className="text-[9px] font-bold uppercase tracking-tighter truncate w-full text-center px-1">
-                {link.shortName || link.name}
+              <Icon size={20} strokeWidth={isActive ? 2.2 : 1.5} />
+              <span className="text-[9px] font-semibold truncate w-full text-center">
+                {link.shortName}
               </span>
               {isActive && (
                 <motion.div 
-                  layoutId="activeTab"
-                  className="absolute bottom-0 w-8 h-1 bg-brand rounded-t-full"
+                  layoutId="mobileTab"
+                  className="absolute top-0 w-10 h-0.5 bg-teal-500 rounded-b-full"
                 />
               )}
             </Link>

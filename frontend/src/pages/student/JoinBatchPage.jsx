@@ -36,9 +36,9 @@ export default function JoinBatchPage() {
         animate={{ opacity: 1, y: 0 }}
       >
         <Card p="xl" className="bg-surface relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-brand/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
+          <div className="absolute top-0 right-0 w-64 h-64 bg-brand/5 rounded-full blur-3xl -tranzinc-y-1/2 tranzinc-x-1/4 pointer-events-none"></div>
           
-          <div className="w-16 h-16 bg-brand/10 text-brand border border-brand/20 rounded-2xl flex items-center justify-center mb-8 relative z-10 shadow-cyan-glow">
+          <div className="w-16 h-16 bg-brand/10 text-brand border border-brand/20 rounded-2xl flex items-center justify-center mb-8 relative z-10 shadow-soft">
             <KeyRound size={32} />
           </div>
           
@@ -62,7 +62,7 @@ export default function JoinBatchPage() {
                 type="submit"
                 disabled={isJoining || !joinCode.trim()}
                 variant="primary"
-                className="w-full py-4 text-sm font-semibold tracking-wider uppercase shadow-cyan-glow"
+                className="w-full py-4 text-sm font-semibold tracking-wider uppercase shadow-soft"
               >
                 {isJoining ? (
                   <div className="flex items-center gap-2">
@@ -72,7 +72,7 @@ export default function JoinBatchPage() {
                 ) : (
                   <>
                     Join Class
-                    <ArrowRight size={20} className="ml-2 group-hover:translate-x-1 transition-transform" />
+                    <ArrowRight size={20} className="ml-2 group-hover:tranzinc-x-1 transition-transform" />
                   </>
                 )}
               </Button>

@@ -3,25 +3,27 @@ import { motion } from 'framer-motion';
 
 const Card = forwardRef(({ 
   children, 
-  p = 'md', // padding size equivalent
+  p = 'md',
   className = '', 
-  interactive = false, // If true, adds hover/active states
+  interactive = false,
   ...props 
 }, ref) => {
 
   const paddingMap = {
-    sm: 'p-md',  // 16px
-    md: 'p-lg',  // 24px
-    lg: 'p-xl',  // 32px
+    '0': 'p-0',
+    sm: 'p-4',
+    md: 'p-5',
+    lg: 'p-6',
+    xl: 'p-8',
   };
 
-  const baseStyles = "bg-surface border border-border rounded-2xl shadow-sm transition-all duration-300";
-  const interactiveStyles = interactive ? "cursor-pointer hover:border-brand hover:shadow-cyan-glow" : "";
+  const baseStyles = "bg-white border border-zinc-100 rounded-2xl shadow-soft transition-all duration-200";
+  const interactiveStyles = interactive ? "cursor-pointer hover:border-teal-200 hover:shadow-md" : "";
   
   return (
     <motion.div
       ref={ref}
-      whileTap={interactive ? { scale: 0.99, boxShadow: "0 2px 4px rgba(0,0,0,0.1)" } : {}}
+      whileTap={interactive ? { scale: 0.99 } : {}}
       className={`${baseStyles} ${paddingMap[p] || paddingMap.md} ${interactiveStyles} ${className}`}
       {...props}
     >

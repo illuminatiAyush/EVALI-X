@@ -130,9 +130,9 @@ export default function TeacherDashboard() {
   };
 
   const stats = [
-    { label: 'Generated Tests', value: tests.length, icon: BrainCircuit, color: 'text-brand', bg: 'bg-brand/10' },
-    { label: 'Total Attempts', value: dashboardStats.totalAttempts, icon: Users, color: 'text-purple-500', bg: 'bg-purple-500/10' },
-    { label: 'Class Avg.', value: `${dashboardStats.classAvg}%`, icon: TrendingUp, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+    { label: 'Generated Tests', value: tests.length, icon: BrainCircuit, color: 'text-zinc-900', bg: 'bg-zinc-100' },
+    { label: 'Total Attempts', value: dashboardStats.totalAttempts, icon: Users, color: 'text-orange-500', bg: 'bg-orange-50' },
+    { label: 'Class Avg.', value: `${dashboardStats.classAvg}%`, icon: TrendingUp, color: 'text-emerald-500', bg: 'bg-emerald-50' },
   ];
 
   return (
@@ -140,8 +140,8 @@ export default function TeacherDashboard() {
       {/* Welcome Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 pb-6 border-b border-border">
         <div>
-          <h1 className="text-2xl sm:text-4xl font-display font-extrabold tracking-tight">Academic Oversight</h1>
-          <p className="text-text-muted font-sans mt-2 text-sm sm:text-base">Initialize high-fidelity assessments and monitor institutional performance.</p>
+          <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight text-zinc-800">Welcome back 👋</h1>
+          <p className="text-zinc-400 font-sans mt-1 text-sm">Manage your assessments and track student performance.</p>
         </div>
         <div className="flex items-center gap-3">
           <Button 
@@ -316,7 +316,7 @@ export default function TeacherDashboard() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-sans font-medium text-text-muted">Activity Level</span>
                   <div className="flex items-center gap-2">
-                    <span className={`text-sm font-semibold uppercase tracking-wider ${dashboardStats.totalAttempts > 0 ? 'text-purple-500' : 'text-text-muted'}`}>
+                    <span className={`text-sm font-semibold uppercase tracking-wider ${dashboardStats.totalAttempts > 0 ? 'text-orange-500' : 'text-zinc-400'}`}>
                       {dashboardStats.totalAttempts > 0 ? 'Active' : 'Inactive'}
                     </span>
                   </div>

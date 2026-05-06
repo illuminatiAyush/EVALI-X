@@ -40,7 +40,7 @@ export default function StudentHistoryPage() {
       <Card p="0" className="overflow-hidden bg-background">
         {loading ? (
           <div className="p-20 text-center">
-            <div className="w-12 h-12 border-4 border-background border-t-brand rounded-full animate-spin mx-auto mb-4 shadow-cyan-glow"></div>
+            <div className="w-12 h-12 border-4 border-background border-t-brand rounded-full animate-spin mx-auto mb-4 shadow-soft"></div>
             <p className="text-text-muted font-semibold text-xs uppercase tracking-wider">Loading records...</p>
           </div>
         ) : results.length > 0 ? (
@@ -56,7 +56,7 @@ export default function StudentHistoryPage() {
                 <div className="flex items-center gap-6">
                   <div className={`w-16 h-16 rounded-xl flex flex-col items-center justify-center font-display font-bold border ${
                     res.percentage >= 80 ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.2)]' : 
-                    res.percentage >= 50 ? 'bg-brand/10 text-brand border-brand/30 shadow-cyan-glow' : 'bg-danger/10 text-danger border-danger/30'
+                    res.percentage >= 50 ? 'bg-brand/10 text-brand border-brand/30 shadow-soft' : 'bg-danger/10 text-danger border-danger/30'
                   }`}>
                     <span className="text-xl">{res.percentage}%</span>
                     <span className="text-[10px] font-semibold uppercase tracking-wider opacity-80 mt-1">Score</span>
@@ -86,7 +86,7 @@ export default function StudentHistoryPage() {
                   className="px-4 py-2 text-xs font-semibold"
                 >
                   View Details
-                  <ChevronRight size={14} className="ml-2 group-hover/btn:translate-x-1 transition-transform" />
+                  <ChevronRight size={14} className="ml-2 group-hover/btn:tranzinc-x-1 transition-transform" />
                 </Button>
               </motion.div>
             ))}

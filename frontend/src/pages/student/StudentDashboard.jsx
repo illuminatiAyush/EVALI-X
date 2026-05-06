@@ -159,14 +159,14 @@ export default function StudentDashboard() {
 
         <Card p="sm" className="md:col-span-4 flex items-center justify-between">
           <div className="flex items-center gap-3 sm:gap-4">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center bg-purple-500/10 text-purple-500">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center bg-zinc-900/10 text-zinc-900">
               <GraduationCap size={20} className="sm:size-6" />
             </div>
             <div>
               <p className="text-[10px] sm:text-xs font-semibold text-text-muted uppercase tracking-wider">Academic Credits</p>
             </div>
           </div>
-          <h3 className="text-2xl sm:text-4xl font-display font-bold text-right text-purple-500">{dashboardStats.learningPoints}</h3>
+          <h3 className="text-2xl sm:text-4xl font-display font-bold text-right text-zinc-900">{dashboardStats.learningPoints}</h3>
         </Card>
       </motion.div>
 
@@ -175,7 +175,7 @@ export default function StudentDashboard() {
         <div className="space-y-6 mb-12">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-display font-bold flex items-center gap-3">
-              <div className="w-2 h-6 bg-purple-500 rounded-sm"></div>
+              <div className="w-2 h-6 bg-zinc-900 rounded-sm"></div>
               Institutional Sections
             </h2>
           </div>
@@ -188,12 +188,12 @@ export default function StudentDashboard() {
                 onClick={() => setSelectedBatchId(selectedBatchId === batch.id ? null : batch.id)}
                 className={`cursor-pointer transition-all border-l-4 ${
                   selectedBatchId === batch.id 
-                    ? 'border-l-purple-500 border-purple-500/50 bg-purple-500/5 scale-[1.02]' 
-                    : 'border-l-purple-500/30 hover:border-l-purple-500'
+                    ? 'border-l-zinc-900 border-zinc-900/50 bg-zinc-900/5 scale-[1.02]' 
+                    : 'border-l-zinc-900/30 hover:border-l-zinc-900'
                 }`}
               >
                 <div className="flex items-center gap-3 mb-2">
-                  <Users size={18} className={`transition-colors ${selectedBatchId === batch.id ? 'text-purple-500' : 'text-purple-500/70'}`} />
+                  <Users size={18} className={`transition-colors ${selectedBatchId === batch.id ? 'text-zinc-900' : 'text-zinc-900/70'}`} />
                   <h3 className="font-display font-bold text-lg">{batch.name}</h3>
                 </div>
                 <p className="text-sm text-text-muted font-sans">

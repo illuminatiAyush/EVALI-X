@@ -4,21 +4,28 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
-  darkMode: 'class',
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"DM Sans"', 'sans-serif'],
-        display: ['"Bricolage Grotesque"', 'sans-serif'],
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        display: ['"Plus Jakarta Sans"', 'sans-serif'],
+        serif: ['"Playfair Display"', 'Georgia', 'serif'],
         mono: ['"JetBrains Mono"', 'monospace'],
       },
       colors: {
         brand: {
           DEFAULT: 'var(--brand)',
           hover: 'var(--brand-hover)',
+          light: 'var(--brand-light)',
         },
-        background: 'var(--bg)',
+        accent: {
+          DEFAULT: 'var(--accent)',
+          hover: 'var(--accent-hover)',
+          light: 'var(--accent-light)',
+        },
+        background: 'var(--background)',
         surface: 'var(--surface)',
+        'surface-muted': 'var(--surface-muted)',
         border: 'var(--border)',
         text: {
           DEFAULT: 'var(--text)',
@@ -27,7 +34,9 @@ export default {
         danger: {
           DEFAULT: 'var(--danger)',
           hover: 'var(--danger-hover)',
-        }
+        },
+        success: 'var(--success)',
+        warning: 'var(--warning)',
       },
       spacing: {
         'xs': '8px',
@@ -37,9 +46,10 @@ export default {
         'xl': '32px',
       },
       boxShadow: {
-        'soft': '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
-        'cyan-glow': '0 0 15px -3px rgba(6, 182, 212, 0.3)',
-      }
+        'soft': '0 1px 3px rgba(0,0,0,0.03), 0 6px 16px rgba(0,0,0,0.02)',
+        'card': '0 1px 3px rgba(0,0,0,0.03), 0 6px 16px rgba(0,0,0,0.02)',
+        'brand-glow': '0 0 0 3px var(--brand-glow)',
+      },
     },
   },
   plugins: [],

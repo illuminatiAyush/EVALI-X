@@ -172,13 +172,13 @@ export default function CreateTestPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-background/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center cyber-grid"
+            className="fixed inset-0 z-[100] bg-background/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center "
           >
             <div className="relative mb-8">
               <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
-                className="w-32 h-32 border-[4px] border-surface border-t-brand rounded-full shadow-cyan-glow"
+                className="w-32 h-32 border-[4px] border-surface border-t-brand rounded-full shadow-soft"
               />
               <div className="absolute inset-0 flex items-center justify-center">
                 <BrainCircuit className="text-brand animate-pulse" size={40} />
@@ -305,15 +305,15 @@ export default function CreateTestPage() {
                         type="button"
                         onClick={() => handleBatchToggle(batch.id)}
                         className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-all text-left ${selectedBatches.includes(batch.id)
-                            ? 'bg-purple-500/10 border-purple-500/30'
+                            ? 'bg-zinc-900/10 border-zinc-900/30'
                             : 'bg-background border-border hover:border-text-muted'
                           }`}
                       >
-                        <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition-colors ${selectedBatches.includes(batch.id) ? 'bg-purple-500 border-purple-500 text-white' : 'border-border'
+                        <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition-colors ${selectedBatches.includes(batch.id) ? 'bg-zinc-900 border-zinc-900 text-white' : 'border-border'
                           }`}>
                           {selectedBatches.includes(batch.id) && <CheckCircle2 size={12} />}
                         </div>
-                        <span className={`text-sm font-display font-bold ${selectedBatches.includes(batch.id) ? 'text-purple-500' : 'text-text'}`}>{batch.name}</span>
+                        <span className={`text-sm font-display font-bold ${selectedBatches.includes(batch.id) ? 'text-zinc-900' : 'text-text'}`}>{batch.name}</span>
                       </button>
                     ))
                   )}
@@ -383,7 +383,7 @@ export default function CreateTestPage() {
                 </motion.div>
               ) : (
                 <>
-                  <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-8 transition-all ${isDragging ? 'bg-brand text-background scale-110 shadow-cyan-glow' : 'bg-background border border-border text-text-muted shadow-sm group-hover:text-brand'
+                  <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-8 transition-all ${isDragging ? 'bg-brand text-background scale-110 shadow-soft' : 'bg-background border border-border text-text-muted shadow-sm group-hover:text-brand'
                     }`}>
                     <UploadCloud size={36} />
                   </div>

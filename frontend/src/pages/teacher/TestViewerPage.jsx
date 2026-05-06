@@ -89,7 +89,7 @@ export default function TestViewerPage() {
         <motion.div 
           animate={{ scale: [1, 1.1, 1], rotate: [0, 180, 360] }}
           transition={{ repeat: Infinity, duration: 2 }}
-          className="w-16 h-16 bg-surface border border-border rounded-xl flex items-center justify-center mb-6 shadow-cyan-glow"
+          className="w-16 h-16 bg-surface border border-border rounded-xl flex items-center justify-center mb-6 shadow-soft"
         >
           <BrainCircuit className="text-brand" size={32} />
         </motion.div>
@@ -245,7 +245,7 @@ export default function TestViewerPage() {
           {shortAnswers.length > 0 && (
             <section>
               <div className="flex items-center gap-3 mb-6 mt-12">
-                <div className="p-2 bg-purple-500/10 text-purple-500 rounded-lg">
+                <div className="p-2 bg-zinc-900/10 text-zinc-900 rounded-lg">
                   <AlignLeft size={20} />
                 </div>
                 <h2 className="text-2xl font-display font-bold text-text">Short Answer Questions</h2>
@@ -259,10 +259,10 @@ export default function TestViewerPage() {
                   <Card 
                     key={idx}
                     p="lg" 
-                    className="group border-l-4 border-l-transparent hover:border-l-purple-500 transition-all"
+                    className="group border-l-4 border-l-transparent hover:border-l-zinc-900 transition-all"
                   >
                     <div className="flex items-start gap-4 mb-6">
-                      <div className="w-8 h-8 rounded-md bg-surface border border-border flex items-center justify-center text-text-muted font-mono font-bold text-sm group-hover:bg-purple-500/10 group-hover:text-purple-500 transition-colors group-hover:border-purple-500/30">
+                      <div className="w-8 h-8 rounded-md bg-surface border border-border flex items-center justify-center text-text-muted font-mono font-bold text-sm group-hover:bg-zinc-900/10 group-hover:text-zinc-900 transition-colors group-hover:border-zinc-900/30">
                         {idx + 1}
                       </div>
                       <h3 className="text-lg font-display font-bold text-text leading-relaxed flex-1 mt-1">
@@ -270,7 +270,7 @@ export default function TestViewerPage() {
                       </h3>
                     </div>
                     <div className="bg-background rounded-lg p-5 border border-border mt-4 ml-12">
-                      <div className="flex items-center gap-2 mb-3 text-purple-500">
+                      <div className="flex items-center gap-2 mb-3 text-zinc-900">
                         <BrainCircuit size={16} />
                         <span className="text-xs font-semibold uppercase">Suggested Answer / Grading Key</span>
                       </div>
@@ -293,7 +293,7 @@ export default function TestViewerPage() {
             <div className="space-y-4 mb-8">
               <div className="flex items-center justify-between p-4 bg-background rounded-lg border border-border">
                 <div className="flex items-center gap-3">
-                  <div className={`w-2.5 h-2.5 rounded-full ${test.status === 'active' ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]' : test.status === 'scheduled' ? 'bg-brand shadow-cyan-glow' : 'bg-text-muted'}`}></div>
+                  <div className={`w-2.5 h-2.5 rounded-full ${test.status === 'active' ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]' : test.status === 'scheduled' ? 'bg-brand shadow-soft' : 'bg-text-muted'}`}></div>
                   <span className="text-sm font-semibold text-text uppercase tracking-wider">{test.status}</span>
                 </div>
                 <span className="text-xs font-medium text-text-muted uppercase">Status</span>
@@ -375,7 +375,7 @@ export default function TestViewerPage() {
                   <div>
                     <label className="block text-sm font-semibold text-text-muted mb-2">Duration (Minutes)</label>
                     <div className="relative">
-                      <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" size={18} />
+                      <Clock className="absolute left-4 top-1/2 -tranzinc-y-1/2 text-text-muted" size={18} />
                       <input 
                         type="number" 
                         value={scheduleData.duration_minutes}

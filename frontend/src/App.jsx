@@ -21,22 +21,17 @@ const StudentHistoryPage = lazy(() => import('./pages/student/StudentHistoryPage
 const JoinBatchPage = lazy(() => import('./pages/student/JoinBatchPage'));
 const ProfilePage = lazy(() => import('./pages/common/ProfilePage'));
 
-// Loading Fallback Component
+// Loading Fallback
 const PageLoader = () => (
-  <div className="flex flex-col items-center justify-center min-h-screen bg-background relative overflow-hidden">
-    <div className="absolute inset-0 cyber-grid opacity-10 pointer-events-none"></div>
-    <div className="relative z-10 flex flex-col items-center">
-      <div className="w-14 h-14 border-4 border-slate-200 border-t-brand rounded-full animate-spin mb-6 shadow-cyan-glow"></div>
-      <p className="text-text-muted font-display font-bold text-sm tracking-widest uppercase animate-pulse">Initializing System...</p>
-    </div>
+  <div className="flex flex-col items-center justify-center min-h-screen bg-white">
+    <div className="w-10 h-10 border-3 border-zinc-200 border-t-zinc-900 rounded-full animate-spin mb-4" />
+    <p className="text-zinc-400 font-sans font-medium text-sm">Loading...</p>
   </div>
 );
 
 function AppRoutes() {
   const { user, role, loading } = useAuth();
   
-  // 🚨 HYDRATION BLOCK: Completely halts the router tree from evaluating URLs
-  // until Supabase finishes parsing the local storage token.
   if (loading) return <PageLoader />;
 
   const isValidRole = role === 'teacher' || role === 'student';
@@ -44,17 +39,14 @@ function AppRoutes() {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        {/* Public Routes */}
-        <Route 
-          path="/" 
-          element={<LandingPage />} 
-        />
+        {/* Public */}
+        <Route path="/" element={<LandingPage />} />
         <Route 
           path="/login" 
           element={user && isValidRole ? <Navigate to={`/${role}/dashboard`} replace /> : <AuthPage />} 
         />
 
-        {/* Teacher Routes */}
+        {/* Teacher */}
         <Route element={<ProtectedRoute allowedRole="teacher" />}>
           <Route path="/teacher" element={<MainLayout />}>
             <Route path="dashboard" element={<TeacherDashboard />} />
@@ -66,7 +58,7 @@ function AppRoutes() {
           </Route>
         </Route>
 
-        {/* Student Routes */}
+        {/* Student */}
         <Route element={<ProtectedRoute allowedRole="student" />}>
           <Route path="/student" element={<MainLayout />}>
             <Route path="dashboard" element={<StudentDashboard />} />
@@ -86,19 +78,6 @@ function AppRoutes() {
 }
 
 function App() {
-  // Sync toaster theme with the document dark class
-  const [theme, setTheme] = React.useState(() =>
-    document.documentElement.classList.contains('dark') ? 'dark' : 'light'
-  );
-
-  React.useEffect(() => {
-    const observer = new MutationObserver(() => {
-      setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
-    });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
-  }, []);
-
   return (
     <ErrorBoundary>
       <AuthProvider>
@@ -106,19 +85,19 @@ function App() {
           <AppRoutes />
         </BrowserRouter>
         <Toaster
-          theme={theme}
           position="bottom-right"
           richColors
           closeButton
           toastOptions={{
             duration: 4000,
             style: {
-              background: 'var(--surface)',
-              color: 'var(--text)',
-              border: '1px solid var(--border)',
+              background: '#ffffff',
+              color: '#1e293b',
+              border: '1px solid #e2e8f0',
               borderRadius: '12px',
               fontSize: '13px',
               fontFamily: '"DM Sans", sans-serif',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
             },
           }}
         />

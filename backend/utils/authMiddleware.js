@@ -8,7 +8,7 @@
  *   fastify.addHook('preHandler', authenticate);
  */
 
-const { getUserFromToken } = require('./supabaseClient');
+const { getUserFromToken, createUserClient } = require('./supabaseClient');
 
 async function authenticate(request, reply) {
   const authHeader = request.headers.authorization;
@@ -30,8 +30,9 @@ async function authenticate(request, reply) {
     });
   }
 
-  // Attach user to request for downstream handlers
+  // Attach user and scoped client to request for downstream handlers
   request.user = user;
+  request.supabase = createUserClient(token);
 }
 
 module.exports = { authenticate };

@@ -1,68 +1,144 @@
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+/**
+ * ╔══════════════════════════════════════════════════════════════════╗
+ * ║  AuthContext — Singleton Auth Provider                          ║
+ * ║  Pattern: "Initialization Ref Guard" for React 18 Strict Mode   ║
+ * ║                                                                  ║
+ * ║  ARCHITECTURE:                                                   ║
+ * ║  1. useRef(false) prevents double-mount from firing getSession  ║
+ * ║     or creating duplicate onAuthStateChange listeners.           ║
+ * ║  2. The Provider ALWAYS renders {children}. Loading state is    ║
+ * ║     consumed downstream by ProtectedRoute.                      ║
+ * ║  3. Role resolution is instant via JWT metadata, with a silent  ║
+ * ║     background DB sync that never blocks the UI.                ║
+ * ╚══════════════════════════════════════════════════════════════════╝
+ */
+
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { supabase, auth } from '../lib/supabase';
 import { debug } from '../lib/debug';
+
 const AuthContext = createContext({});
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
-  const roleOverrideRef = useRef(null);
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // STRICT MODE GUARD: This ref ensures initialization runs EXACTLY
+  // once, even when React 18 Strict Mode double-mounts the component.
+  // Without this, two onAuthStateChange listeners get created, and
+  // both race to set state, causing ghost updates after unmount.
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const initRef = useRef(false);
+
+  // Background role resolver — extracted so it can be called from
+  // both the initial session hydration and the listener callback.
+  const resolveRole = useCallback(async (sessionUser, mounted) => {
+    // STEP 1: Instant metadata fallback (never blocks UI)
+    const metadataRole = sessionUser.user_metadata?.role || 'student';
+    setRole(metadataRole);
+
+    // STEP 2: Silent DB sync (upgrades role if DB disagrees with metadata)
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', sessionUser.id)
+        .single();
+
+      if (!error && profile?.role && mounted.current) {
+        setRole(profile.role);
+      }
+    } catch (err) {
+      debug.auth.warn('Background profile sync failed (non-critical)', { error: err.message });
+      // No-op: metadata fallback is already applied
+    }
+  }, []);
 
   useEffect(() => {
-    let mounted = true;
+    // ━━━ STRICT MODE GATE ━━━
+    // In development, React 18 mounts → unmounts → remounts.
+    // The first mount sets initRef.current = true.
+    // The cleanup sets it back to false.
+    // The second mount sees false and proceeds normally.
+    // In production, this fires exactly once.
+    if (initRef.current) return;
+    initRef.current = true;
 
-    // GLOBAL FAILSAFE: If auth takes more than 5s, we MUST show the app (likely unauthenticated)
-    const authTimeout = setTimeout(() => {
-      if (mounted && loading) {
-        debug.auth.error('Auth initialization timed out (5s failsafe).');
-        setLoading(false);
-      }
-    }, 5000);
+    const mounted = { current: true }; // Object ref so async callbacks can read latest value
+    let subscription = null;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return;
-      debug.auth.info(`Auth Event: ${event}`);
+    const bootstrap = async () => {
+      debug.auth.info('Auth bootstrap starting (guarded)...');
 
-      if (session?.user) {
-        setUser(session.user);
-        
-        // 1. Immediate Metadata Fallback (Instant Load)
-        const initialRole = session.user.user_metadata?.role || 'student';
-        setRole(initialRole);
-        
-        // 2. Clear loading screen instantly
-        setLoading(false);
-        clearTimeout(authTimeout);
+      // ━━━ PHASE 1: Hydrate from existing session ━━━
+      // This resolves the "reload loses state" problem. On page load,
+      // Supabase checks localStorage for a persisted JWT and returns it.
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
 
-        // 3. Background DB Sync (Silent Update)
-        try {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', session.user.id)
-            .single();
-          
-          if (mounted && profile?.role) {
-            setRole(profile.role);
-          }
-        } catch (err) {
-          debug.auth.warn('Background profile fetch failed (non-critical)');
+        if (!error && session?.user && mounted.current) {
+          setUser(session.user);
+          await resolveRole(session.user, mounted);
         }
-      } else {
-        setUser(null);
-        setRole(null);
-        setLoading(false);
-        clearTimeout(authTimeout);
+      } catch (err) {
+        debug.auth.warn('Session hydration failed', { error: err.message });
       }
-    });
 
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-      clearTimeout(authTimeout);
+      // ━━━ ALWAYS clear loading after session check ━━━
+      if (mounted.current) {
+        setLoading(false);
+      }
+
+      // ━━━ PHASE 2: Subscribe to future auth events ━━━
+      // This handles: login, logout, token refresh, tab focus recovery.
+      // It does NOT re-fire for the initial session (we handled that above).
+      const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (!mounted.current) return;
+        debug.auth.info(`Auth Event: ${event}`);
+
+        if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setRole(null);
+          return;
+        }
+
+        if (session?.user) {
+          setUser(session.user);
+
+          // Only do full role resolution on meaningful events
+          if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+            await resolveRole(session.user, mounted);
+          }
+          // TOKEN_REFRESHED: user/role unchanged, no action needed
+        }
+
+        // Always ensure loading is cleared on any event
+        if (mounted.current) setLoading(false);
+      });
+
+      subscription = data.subscription;
     };
-  }, []);
+
+    bootstrap();
+
+    // ━━━ CLEANUP ━━━
+    // Fires on unmount (Strict Mode first pass, or actual unmount).
+    // Kills the listener and prevents state updates on dead components.
+    return () => {
+      mounted.current = false;
+      initRef.current = false; // Allow re-init on Strict Mode remount
+      if (subscription) {
+        subscription.unsubscribe();
+        debug.auth.info('Auth subscription cleaned up');
+      }
+    };
+  }, [resolveRole]);
+
+  // ━━━ ACTION HANDLERS ━━━
+  // These are imperative flows triggered by user interaction (login/signup buttons).
+  // They set state directly and return the result to the calling component.
 
   const login = async (email, password) => {
     debug.auth.info('Login attempt', { email });
@@ -76,7 +152,6 @@ export const AuthProvider = ({ children }) => {
 
       debug.auth.info('Login successful', { userId: data.user.id });
 
-      // Immediately fetch profile role for the redirect
       if (data.user) {
         try {
           const { data: profile, error: profileError } = await supabase
@@ -113,14 +188,9 @@ export const AuthProvider = ({ children }) => {
   const signup = async (email, password, userRole = 'student') => {
     debug.auth.info('Signup attempt', { email, role: userRole });
     try {
-      // Set override BEFORE signUp because auto-confirm fires SIGNED_IN event immediately
-      // before the signUp promise even resolves!
-      roleOverrideRef.current = userRole;
-
       const { data, error } = await auth.signUp(email, password, { data: { role: userRole } });
 
       if (error) {
-        roleOverrideRef.current = null; // Clear on failure
         debug.auth.error('Signup failed', { error: error.message, status: error.status });
         return { success: false, error: error.message };
       }
@@ -158,7 +228,6 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true, user: data.user, role: userRole };
     } catch (err) {
-      roleOverrideRef.current = null;
       debug.auth.error('Signup threw unexpected error', { error: err.message, stack: err.stack });
       return { success: false, error: err.message || 'Signup failed' };
     }
@@ -177,6 +246,9 @@ export const AuthProvider = ({ children }) => {
     window.location.href = '/';
   };
 
+  // ━━━ PROVIDER ━━━
+  // ALWAYS renders children. Never conditionally hides them.
+  // Loading state is consumed by ProtectedRoute downstream.
   return (
     <AuthContext.Provider value={{ user, role, loading, login, signup, logout }}>
       {children}

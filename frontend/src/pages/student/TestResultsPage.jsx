@@ -34,7 +34,7 @@ export default function TestResultsPage() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="w-14 h-14 border-4 border-background border-t-brand rounded-full animate-spin shadow-cyan-glow mb-4"></div>
+        <div className="w-14 h-14 border-4 border-background border-t-brand rounded-full animate-spin shadow-soft mb-4"></div>
         <p className="text-text-muted font-sans font-medium text-sm">Loading results...</p>
       </div>
     );
@@ -66,7 +66,7 @@ export default function TestResultsPage() {
           <ArrowLeft size={18} className="mr-2" />
           Dashboard
         </Button>
-        <div className="flex items-center gap-2 px-3 py-1 bg-brand/10 text-brand border border-brand/20 rounded-md font-semibold text-xs uppercase tracking-wider shadow-cyan-glow">
+        <div className="flex items-center gap-2 px-3 py-1 bg-brand/10 text-brand border border-brand/20 rounded-md font-semibold text-xs uppercase tracking-wider shadow-soft">
           <CheckCircle2 size={16} />
           Assessment Completed
         </div>
@@ -79,13 +79,13 @@ export default function TestResultsPage() {
       >
         <Card p="0" className="overflow-hidden bg-background">
           <div className="bg-surface border-b border-border p-6 sm:p-12 text-center relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-brand/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
+            <div className="absolute top-0 right-0 w-64 h-64 bg-brand/5 rounded-full blur-3xl -tranzinc-y-1/2 tranzinc-x-1/4 pointer-events-none"></div>
             
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.2, type: 'spring' }}
-              className="inline-flex flex-col items-center justify-center w-40 h-40 rounded-full border-2 border-brand/30 bg-brand/10 mb-6 shadow-cyan-glow relative z-10"
+              className="inline-flex flex-col items-center justify-center w-40 h-40 rounded-full border-2 border-brand/30 bg-brand/10 mb-6 shadow-soft relative z-10"
             >
               <span className="text-3xl sm:text-5xl font-display font-bold text-brand">{percentage}%</span>
               <span className="text-xs font-semibold uppercase tracking-wider text-brand/70 mt-2">Score</span>

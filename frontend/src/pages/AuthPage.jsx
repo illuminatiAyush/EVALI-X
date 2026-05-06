@@ -54,12 +54,12 @@ export default function AuthPage() {
       <div className="hidden lg:flex lg:w-1/2 bg-surface border-r border-border p-16 flex-col justify-between relative overflow-hidden">
         {/* Abstract Background Shapes */}
         <div className="absolute top-0 right-0 -mr-24 -mt-24 w-96 h-96 bg-brand/10 rounded-full blur-[100px] pointer-events-none"></div>
-        <div className="absolute bottom-0 left-0 -ml-24 -mb-24 w-96 h-96 bg-purple-500/10 rounded-full blur-[100px] pointer-events-none"></div>
-        <div className="absolute inset-0 cyber-grid opacity-20 pointer-events-none"></div>
+        <div className="absolute bottom-0 left-0 -ml-24 -mb-24 w-96 h-96 bg-zinc-900/10 rounded-full blur-[100px] pointer-events-none"></div>
+        <div className="absolute inset-0  opacity-20 pointer-events-none"></div>
 
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-12">
-            <div className="w-10 h-10 bg-brand rounded-xl flex items-center justify-center text-white shadow-cyan-glow">
+            <div className="w-10 h-10 bg-brand rounded-xl flex items-center justify-center text-white shadow-soft">
               <BrainCircuit size={24} />
             </div>
             <span className="text-2xl font-display font-bold tracking-tight">Evalix Core</span>
@@ -83,8 +83,8 @@ export default function AuthPage() {
             <h3 className="font-display font-bold">Secure Protocol</h3>
             <p className="text-sm text-text-muted mt-1 font-sans">Enterprise-grade security active.</p>
           </Card>
-          <Card p="md" className="bg-background/80 backdrop-blur-sm border-border hover:border-purple-500/40 transition-colors">
-            <div className="w-10 h-10 bg-purple-500/10 text-purple-500 border border-purple-500/20 rounded-lg flex items-center justify-center mb-4">
+          <Card p="md" className="bg-background/80 backdrop-blur-sm border-border hover:border-zinc-900/40 transition-colors">
+            <div className="w-10 h-10 bg-zinc-900/10 text-zinc-900 border border-zinc-900/20 rounded-lg flex items-center justify-center mb-4">
               <GraduationCap size={20} />
             </div>
             <h3 className="font-display font-bold">Dual Interfaces</h3>
@@ -161,7 +161,7 @@ export default function AuthPage() {
                         onClick={() => setRole('student')}
                         className={`py-3 px-4 rounded-xl border-2 font-display font-bold transition-all flex items-center justify-center gap-2 ${
                           role === 'student' 
-                            ? 'border-brand bg-brand/10 text-brand shadow-cyan-glow' 
+                            ? 'border-brand bg-brand/10 text-brand shadow-soft' 
                             : 'border-border bg-surface text-text-muted hover:border-text-muted'
                         }`}
                       >
@@ -173,7 +173,7 @@ export default function AuthPage() {
                         onClick={() => setRole('teacher')}
                         className={`py-3 px-4 rounded-xl border-2 font-display font-bold transition-all flex items-center justify-center gap-2 ${
                           role === 'teacher' 
-                            ? 'border-purple-500 bg-purple-500/10 text-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]' 
+                            ? 'border-zinc-900 bg-zinc-900/10 text-zinc-900 shadow-[0_0_15px_rgba(168,85,247,0.3)]' 
                             : 'border-border bg-surface text-text-muted hover:border-text-muted'
                         }`}
                       >
@@ -190,7 +190,7 @@ export default function AuthPage() {
               type="submit" 
               variant="primary"
               loading={loading}
-              className="w-full py-4 text-base shadow-cyan-glow"
+              className="w-full py-4 text-base shadow-soft"
             >
               {isLogin ? 'Authenticate' : 'Initialize'}
               <ArrowRight size={18} className="ml-2" />

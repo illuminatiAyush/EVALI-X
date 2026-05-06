@@ -58,7 +58,7 @@ export default function TestAnalyticsPage() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="w-12 h-12 border-4 border-background border-t-brand rounded-full animate-spin shadow-cyan-glow mb-4"></div>
+        <div className="w-12 h-12 border-4 border-background border-t-brand rounded-full animate-spin shadow-soft mb-4"></div>
         <p className="text-text-muted font-sans font-medium text-sm">Loading analytics...</p>
       </div>
     );
@@ -107,7 +107,7 @@ export default function TestAnalyticsPage() {
           { label: 'Total Attempts', value: results.length, icon: Users, color: 'text-brand', bg: 'bg-brand/10' },
           { label: 'Avg. Score', value: `${avgScore}%`, icon: TrendingUp, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
           { label: 'Highest Score', value: `${highestScore}%`, icon: Trophy, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-          { label: 'Pass Rate', value: `${passRate}%`, icon: CheckCircle2, color: 'text-purple-500', bg: 'bg-purple-500/10' },
+          { label: 'Pass Rate', value: `${passRate}%`, icon: CheckCircle2, color: 'text-zinc-900', bg: 'bg-zinc-900/10' },
         ].map((s, i) => (
           <Card 
             key={i}
@@ -132,7 +132,7 @@ export default function TestAnalyticsPage() {
           </h2>
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <div className="relative flex-1 sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={16} />
+              <Search className="absolute left-3 top-1/2 -tranzinc-y-1/2 text-text-muted" size={16} />
               <input 
                 type="text" 
                 placeholder="Search student..."
@@ -183,7 +183,7 @@ export default function TestAnalyticsPage() {
                   <td className="px-8 py-5">
                     <div className="w-32 h-1.5 bg-background border border-border rounded-full overflow-hidden relative">
                       <div 
-                        className={`absolute top-0 left-0 h-full rounded-full ${(res.ai_feedback?.percentage || 0) >= 80 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-brand shadow-cyan-glow'}`}
+                        className={`absolute top-0 left-0 h-full rounded-full ${(res.ai_feedback?.percentage || 0) >= 80 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-brand shadow-soft'}`}
                         style={{ width: `${res.ai_feedback?.percentage || 0}%` }}
                       />
                     </div>

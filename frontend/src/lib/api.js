@@ -5,7 +5,7 @@
  * ╚══════════════════════════════════════════════════════════════════╝
  */
 
-import { supabase, withTimeout } from './supabase';
+import { supabase } from './supabase';
 import { debug } from './debug';
 
 
@@ -108,56 +108,48 @@ export const apiService = {
     const user = session?.user;
     if (!user) throw new Error('Unauthorized');
 
-    const { data: profile } = await withTimeout(
-      supabase.from('profiles').select('role').eq('id', user.id).single(),
-      "Failed to verify user role."
-    );
+    // Use JWT metadata to determine role — no extra DB round-trip needed
+    const userRole = user.user_metadata?.role || 'student';
 
-    if (profile?.role === 'teacher') {
-      const { data, error } = await withTimeout(
-        supabase
-          .from('tests')
-          .select(`
-            *,
-            test_batches ( batch_id )
-          `)
-          .eq('created_by', user.id)
-          .order('created_at', { ascending: false }),
-        "Timed out fetching your assessments."
-      );
+    if (userRole === 'teacher') {
+      const { data, error } = await supabase
+        .from('tests')
+        .select(`
+          *,
+          test_batches ( batch_id )
+        `)
+        .eq('created_by', user.id)
+        .order('created_at', { ascending: false });
         
       if (error) throw new Error(error.message);
       
-      return data.map(test => ({
+      return (data || []).map(test => ({
         ...test,
         batch_ids: test.test_batches?.map(tb => tb.batch_id) || []
       }));
     } else {
       // Student view - get assigned active/scheduled tests
-      const { data: batchIds } = await withTimeout(
-        supabase.from('student_batches').select('batch_id').eq('student_id', user.id),
-        "Timed out fetching assigned classes."
-      );
+      const { data: batchIds } = await supabase
+        .from('student_batches')
+        .select('batch_id')
+        .eq('student_id', user.id);
         
       const myBatchIds = batchIds?.map(b => b.batch_id) || [];
       if (myBatchIds.length === 0) return [];
 
-      const { data, error } = await withTimeout(
-        supabase
-          .from('tests')
-          .select(`
-            *,
-            test_batches!inner ( batch_id )
-          `)
-          .in('status', ['active', 'scheduled'])
-          .in('test_batches.batch_id', myBatchIds)
-          .order('created_at', { ascending: false }),
-        "Timed out fetching assigned tests."
-      );
+      const { data, error } = await supabase
+        .from('tests')
+        .select(`
+          *,
+          test_batches!inner ( batch_id )
+        `)
+        .in('status', ['active', 'scheduled'])
+        .in('test_batches.batch_id', myBatchIds)
+        .order('created_at', { ascending: false });
 
       if (error) throw new Error(error.message);
 
-      return data.map(test => ({
+      return (data || []).map(test => ({
         ...test,
         batch_ids: test.test_batches?.map(tb => tb.batch_id) || []
       }));
@@ -171,17 +163,14 @@ export const apiService = {
     const { data: { session } } = await supabase.auth.getSession();
     const user = session?.user;
     
-    const { data: test, error: testError } = await withTimeout(
-      supabase
-        .from('tests')
-        .select(`
-          *,
-          test_batches ( batch_id )
-        `)
-        .eq('id', id)
-        .single(),
-      "Assessment retrieval timed out."
-    );
+    const { data: test, error: testError } = await supabase
+      .from('tests')
+      .select(`
+        *,
+        test_batches ( batch_id )
+      `)
+      .eq('id', id)
+      .single();
 
     if (testError || !test) throw new Error('Test not found');
 
@@ -406,20 +395,20 @@ export const apiService = {
     if (!user) return { totalAttempts: 0, classAvg: 0 };
 
     // Get teacher's tests
-    const { data: tests } = await withTimeout(
-      supabase.from('tests').select('id').eq('created_by', user.id),
-      "Dashboard stats timed out."
-    );
+    const { data: tests } = await supabase
+      .from('tests')
+      .select('id')
+      .eq('created_by', user.id);
 
     if (!tests || tests.length === 0) return { totalAttempts: 0, classAvg: 0 };
     
     const testIds = tests.map(t => t.id);
 
     // Get all results for these tests
-    const { data: results } = await withTimeout(
-      supabase.from('results').select('marks, test_id').in('test_id', testIds),
-      "Dashboard analytics timed out."
-    );
+    const { data: results } = await supabase
+      .from('results')
+      .select('marks, test_id')
+      .in('test_id', testIds);
 
     const totalAttempts = results ? results.length : 0;
     
@@ -495,10 +484,10 @@ export const apiService = {
   async getTestAttemptCounts(testIds) {
     if (!testIds || testIds.length === 0) return {};
     
-    const { data: attempts } = await withTimeout(
-      supabase.from('attempts').select('test_id').in('test_id', testIds),
-      "Attempt data retrieval timed out."
-    );
+    const { data: attempts } = await supabase
+      .from('attempts')
+      .select('test_id')
+      .in('test_id', testIds);
       
     const counts = {};
     if (attempts) {
@@ -599,4 +588,17 @@ export const apiService = {
     if (error) throw new Error(error.message || 'Failed to assign test to batches');
     return { success: true };
   },
+
+  // AI Usage & Analytics
+  getAIUsage: async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Unauthorized');
+
+    const response = await fetch(`${BACKEND_URL}/usage`, {
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`
+      }
+    });
+    return response.json();
+  }
 };

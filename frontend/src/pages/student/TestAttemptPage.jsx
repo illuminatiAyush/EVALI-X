@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiService } from '../../lib/api';
@@ -33,8 +33,39 @@ export default function TestAttemptPage() {
 
   const attemptRef = useRef(null);
 
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // DEBOUNCE UTILITY
+  // Prevents localStorage thrashing from rapid MCQ clicks.
+  // Only the final state snapshot (after 500ms of silence) is written.
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const debounceTimerRef = useRef(null);
+  const saveToLocal = useCallback((attemptId, data) => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      const storageKey = `evalix_attempt_${attemptId}`;
+      const payload = {
+        ...data,
+        updatedAt: new Date().toISOString()
+      };
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(payload));
+      } catch (err) {
+        console.warn('localStorage write failed (storage full?)', err);
+      }
+    }, 500);
+  }, []);
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // MOUNT: TWO-WAY CONFLICT RESOLUTION
+  // Fetches both remote (Supabase) and local (localStorage) states,
+  // compares them, and hydrates the UI with the MOST COMPLETE state.
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   useEffect(() => {
     loadTestAttempt();
+    // Cleanup debounce timer on unmount
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
   }, [id]);
 
   const loadTestAttempt = async () => {
@@ -43,27 +74,58 @@ export default function TestAttemptPage() {
       setAttempt(data.attempt);
       attemptRef.current = data.attempt;
       setQuestions(data.questions);
-      
-      // 1. Recover answers from server first
+
+      // ━━━ SOURCE 1: Remote (Server/Supabase) ━━━
       const serverAnswers = data.attempt.answers || {};
-      
-      // 2. Recover from localStorage for immediate reload consistency
+      const serverAnswerCount = Object.keys(serverAnswers).length;
+
+      // ━━━ SOURCE 2: Local (Browser localStorage) ━━━
       const storageKey = `evalix_attempt_${data.attempt.id}`;
-      const localData = JSON.parse(localStorage.getItem(storageKey) || '{}');
-      
-      setAnswers({ ...serverAnswers, ...(localData.answers || {}) });
-      
-      if (localData.currentQuestion !== undefined) {
-        setCurrentQuestion(localData.currentQuestion);
+      let localData = {};
+      try {
+        localData = JSON.parse(localStorage.getItem(storageKey) || '{}');
+      } catch (e) {
+        // Corrupted localStorage entry — ignore it
+        localStorage.removeItem(storageKey);
       }
-      
+      const localAnswers = localData.answers || {};
+      const localAnswerCount = Object.keys(localAnswers).length;
+
+      // ━━━ CONFLICT RESOLUTION ━━━
+      // Strategy: Whichever source has MORE answered questions wins.
+      // If equal, prefer the one with the newer timestamp.
+      // This mirrors Google Docs offline reconciliation.
+      let resolvedAnswers;
+      let resolvedQuestion = 0;
+
+      if (localAnswerCount > serverAnswerCount) {
+        // Local is ahead (student answered questions that didn't sync to server)
+        resolvedAnswers = { ...serverAnswers, ...localAnswers };
+        resolvedQuestion = localData.currentQuestion ?? 0;
+        console.info(`[Sync] LOCAL wins: ${localAnswerCount} answers vs ${serverAnswerCount} server answers`);
+      } else if (serverAnswerCount > localAnswerCount) {
+        // Server is ahead (e.g., student used a different device)
+        resolvedAnswers = { ...localAnswers, ...serverAnswers };
+        resolvedQuestion = 0; // Server doesn't track question index, start from 0
+        console.info(`[Sync] SERVER wins: ${serverAnswerCount} answers vs ${localAnswerCount} local answers`);
+      } else {
+        // Equal count — merge both, prefer local for question position
+        resolvedAnswers = { ...serverAnswers, ...localAnswers };
+        resolvedQuestion = localData.currentQuestion ?? 0;
+        console.info(`[Sync] MERGE: ${serverAnswerCount} server + ${localAnswerCount} local answers merged`);
+      }
+
+      setAnswers(resolvedAnswers);
+      setCurrentQuestion(resolvedQuestion);
+
+      // Time calculation
       if (data.attempt.ends_at) {
         const remaining = Math.floor((new Date(data.attempt.ends_at) - new Date()) / 1000);
         setTimeLeft(Math.max(0, remaining));
       } else {
         setTimeLeft(data.remaining_seconds || 0);
       }
-      
+
       if (data.attempt.status === 'completed') {
         setIsSubmitted(true);
       }
@@ -76,19 +138,61 @@ export default function TestAttemptPage() {
     }
   };
 
-  // 🚨 Persistence Layer: Save to LocalStorage whenever state changes
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // PERSISTENCE LAYER: Debounced Local Writes
+  // Fires on every state change but the actual localStorage.setItem
+  // is delayed by 500ms to coalesce rapid updates.
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   useEffect(() => {
     if (!attempt || isSubmitted) return;
-    
-    const storageKey = `evalix_attempt_${attempt.id}`;
-    const stateToSave = {
-      currentQuestion,
-      answers,
-      updatedAt: new Date().toISOString()
-    };
-    localStorage.setItem(storageKey, JSON.stringify(stateToSave));
-  }, [currentQuestion, answers, attempt, isSubmitted]);
+    saveToLocal(attempt.id, { currentQuestion, answers });
+  }, [currentQuestion, answers, attempt, isSubmitted, saveToLocal]);
 
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // BACKGROUND SYNC: Silently push local state to backend every 10s.
+  // This runs independently of user actions and never blocks the UI.
+  // If it fails, it silently retries on the next interval.
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const answersRef = useRef(answers);
+  answersRef.current = answers; // Always keep ref in sync with state
+
+  useEffect(() => {
+    if (!attempt || isSubmitted) return;
+
+    const syncInterval = setInterval(async () => {
+      const currentAnswers = answersRef.current;
+      if (Object.keys(currentAnswers).length === 0) return;
+
+      try {
+        // Find the question IDs for each answered index and sync them
+        for (const [qIndex, answer] of Object.entries(currentAnswers)) {
+          const question = questions[parseInt(qIndex)];
+          if (question?.id && answer) {
+            await apiService.saveAnswer(attempt.id, question.id, answer);
+          }
+        }
+      } catch (err) {
+        // Silent failure — will retry next interval
+        console.warn('[BackgroundSync] Failed to push answers to server:', err.message);
+      }
+    }, 10000); // Every 10 seconds
+
+    return () => clearInterval(syncInterval);
+  }, [attempt, isSubmitted, questions]);
+
+  const handleAnswer = (questionId, answer) => {
+    const qIndex = currentQuestion;
+    setAnswers(prev => ({ ...prev, [qIndex]: answer }));
+    
+    // Immediate remote sync for this specific answer (fire-and-forget)
+    if (attempt?.id) {
+      apiService.saveAnswer(attempt.id, questionId, answer).catch(err => {
+        console.warn('[AnswerSync] Remote save failed, will retry via background sync:', err.message);
+      });
+    }
+  };
+
+  // ━━━ COUNTDOWN TIMER ━━━
   useEffect(() => {
     if (!attempt || isSubmitted) return;
 
@@ -108,6 +212,7 @@ export default function TestAttemptPage() {
     }
   }, [timeLeft, isSubmitted, attempt]);
 
+  // ━━━ TAB-SWITCH PROCTORING ━━━
   useEffect(() => {
     const handleVisibilityChange = async () => {
       if (document.hidden && !isSubmitted && attemptRef.current) {
@@ -130,6 +235,7 @@ export default function TestAttemptPage() {
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [isSubmitted]);
 
+  // ━━━ TEACHER-INITIATED TERMINATION POLLING ━━━
   useEffect(() => {
     if (isSubmitted || !attempt) return;
 
@@ -152,17 +258,6 @@ export default function TestAttemptPage() {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-  };
-
-  const handleAnswer = async (questionId, answer) => {
-    const qIndex = currentQuestion;
-    setAnswers(prev => ({ ...prev, [qIndex]: answer }));
-    
-    try {
-      await apiService.saveAnswer(attempt.id, questionId, answer);
-    } catch (err) {
-      toast.error('Failed to sync data');
-    }
   };
 
   const handleSubmit = async (reason = 'completed') => {
@@ -189,7 +284,7 @@ export default function TestAttemptPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background">
-        <div className="w-14 h-14 border-4 border-background border-t-brand rounded-full animate-spin mb-6 shadow-cyan-glow"></div>
+        <div className="w-14 h-14 border-4 border-background border-t-brand rounded-full animate-spin mb-6 shadow-soft"></div>
         <p className="text-text font-display font-bold text-xl">Loading Assessment...</p>
         <p className="text-text-muted text-xs font-semibold uppercase tracking-wider mt-2">Preparing your questions</p>
       </div>
@@ -285,7 +380,7 @@ export default function TestAttemptPage() {
       {/* Test Navbar */}
       <nav className="h-16 sm:h-20 bg-surface border-b border-border px-4 sm:px-8 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-3 sm:gap-4">
-          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-brand/10 text-brand border border-brand/20 rounded-lg flex items-center justify-center shadow-cyan-glow">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-brand/10 text-brand border border-brand/20 rounded-lg flex items-center justify-center shadow-soft">
             <BrainCircuit size={18} className="sm:size-5" />
           </div>
           <div>
@@ -317,7 +412,7 @@ export default function TestAttemptPage() {
               <div 
                 key={i} 
                 className={`h-full flex-1 border-r border-background transition-all duration-500 ${
-                  i <= currentQuestion ? 'bg-brand shadow-cyan-glow' : 'bg-transparent'
+                  i <= currentQuestion ? 'bg-brand shadow-soft' : 'bg-transparent'
                 }`}
               />
             ))}
@@ -400,7 +495,7 @@ export default function TestAttemptPage() {
                 className="px-8 py-3 tracking-widest font-display font-bold uppercase"
               >
                 {isSubmitting ? 'Submitting...' : 'Submit Assessment'}
-                <Send size={16} className="ml-2 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                <Send size={16} className="ml-2 group-hover:tranzinc-x-1 group-hover:-tranzinc-y-1 transition-transform" />
               </Button>
             ) : (
               <Button
@@ -424,7 +519,7 @@ export default function TestAttemptPage() {
             onClick={() => setCurrentQuestion(i)}
             className={`w-10 h-10 rounded-md font-display font-bold text-xs transition-all flex items-center justify-center shrink-0 border ${
               currentQuestion === i 
-                ? 'bg-brand text-background border-brand shadow-cyan-glow' 
+                ? 'bg-brand text-background border-brand shadow-soft' 
                 : answers[i] 
                   ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30' 
                   : 'bg-background text-text-muted border-border hover:border-text-muted'

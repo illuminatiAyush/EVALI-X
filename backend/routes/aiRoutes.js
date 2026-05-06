@@ -149,6 +149,50 @@ async function aiRoutes(fastify, options) {
     }
   });
 
+  /**
+   * GET /api/ai/usage
+   * Returns token usage statistics for the current user.
+   */
+  fastify.get('/usage', async (request, reply) => {
+    try {
+      const { supabaseAdmin } = require('../utils/supabaseClient');
+      const { data, error } = await supabaseAdmin
+        .from('api_usage')
+        .select('*')
+        .eq('user_id', request.user.id);
+
+      if (error) throw error;
+
+      const totalTokens = data.reduce((sum, item) => sum + item.tokens_used, 0);
+      const generationCount = data.length;
+      
+      // Calculate daily breakdown for the last 7 days
+      const last7Days = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        return d.toISOString().split('T')[0];
+      }).reverse();
+
+      const dailyBreakdown = last7Days.map(date => {
+        const tokens = data
+          .filter(item => item.created_at.startsWith(date))
+          .reduce((sum, item) => sum + item.tokens_used, 0);
+        return { date, tokens };
+      });
+
+      return reply.send({
+        success: true,
+        summary: {
+          totalTokens,
+          generationCount,
+          limit: 100000, // Static limit for now
+        },
+        dailyBreakdown
+      });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: error.message });
+    }
+  });
 }
 
 module.exports = aiRoutes;
