@@ -1,0 +1,76 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,500;1,700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ─── EVALIX — FRESH TEAL + WARM ACCENTS ─────── */
+    --background: #fafbfc;
+    --surface: #ffffff;
+    --surface-muted: #f5f7fa;
+
+    --brand: #0d9488;        /* Teal-600 — calm, educational */
+    --brand-hover: #0f766e;
+    --brand-light: #ccfbf1;  /* Teal-100 */
+    --brand-glow: rgba(13, 148, 136, 0.10);
+
+    --accent: #f97316;       /* Orange-500 — warm CTAs */
+    --accent-hover: #ea580c;
+    --accent-light: #fff7ed;
+
+    --text: #1e293b;         /* Slate-800 */
+    --text-muted: #94a3b8;   /* Slate-400 */
+    --border: #e5e7eb;       /* Gray-200 */
+    --border-hover: #d1d5db;
+
+    --danger: #ef4444;
+    --danger-hover: #dc2626;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --ring: rgba(13, 148, 136, 0.20);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  @apply bg-background text-text antialiased;
+  font-weight: 400;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  @apply tracking-tight;
+  font-weight: 600;
+}
+
+::selection {
+  background: rgba(13, 148, 136, 0.12);
+  color: inherit;
+}
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { @apply bg-gray-200 rounded-full; }
+::-webkit-scrollbar-thumb:hover { @apply bg-gray-300; }
+
+@layer utilities {
+  .shadow-card {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03), 0 6px 16px rgba(0,0,0,0.02);
+  }
+  .shadow-brand-glow {
+    box-shadow: 0 0 0 3px var(--brand-glow);
+  }
+  .gradient-text {
+    @apply text-transparent bg-clip-text;
+    background-image: linear-gradient(135deg, #0d9488 0%, #22c55e 50%, #f97316 100%);
+  }
+  .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+  .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { @apply bg-gray-200 rounded-full; }
+}

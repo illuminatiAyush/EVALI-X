@@ -1,0 +1,88 @@
+# ==============================================================================
+#                      EVALIX PLATFORM GLOBAL .GITIGNORE
+# ==============================================================================
+
+# ── 1. NODE DEPENDENCIES ──
+node_modules/
+**/node_modules/
+.pnp
+.pnp.js
+
+# ── 2. DEVELOPMENT & EDITOR CONFIGS ──
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+
+# ── 3. ENVIRONMENTS & SECRETS ──
+# Highly critical: prevent committing any API keys or secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+**/.env
+**/.env.*
+supabase/config.toml # if hosting secret keys
+supabase/.temp/
+
+# ── 4. PRODUCTION BUILDS & COMPILATIONS ──
+dist/
+**/dist/
+build/
+**/build/
+.vite/
+.next/
+out/
+.docusaurus/
+.serverless/
+
+# ── 5. DIAGNOSTICS & RUNTIME LOGS ──
+*.log
+logs/
+**/logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ── 6. CACHES & SYSTEM FILES ──
+.eslintcache
+.stylelintcache
+.parcel-cache
+.turbo/
+.next/
+.cache/
+.npm/
+
+# ── 7. TESTING & COVERAGE ──
+coverage/
+**/coverage/
+.nyc_output/
+.playwright/
+playwright-report/
+test-results/
+
+# ── 8. DATABASE / RUNTIME STATE ──
+*.db
+*.sqlite
+*.sqlite-journal
+
+# ── 9. PROJECT SPECIFIC UPLOADS & GRAPHIFY ──
+graphify-out/
+backend/uploads/*
+!backend/uploads/.gitkeep
+frontend/src/assets/temp/*
+
+# ── 10. AGENT / MODEL SYSTEM LOGS ──
+.gemini/
+**/logs/overview.txt
+**/logs/
+**/scratch/
+**/browser/

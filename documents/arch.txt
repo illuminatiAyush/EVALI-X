@@ -1,0 +1,229 @@
+================================================================================
+                    EVALIX PLATFORM ARCHITECTURE DESIGN
+================================================================================
+
+This document details the minute-level architecture of the Evalix Platform (v2.0),
+detailing all layers, systems, engines, database schemas, and background pipelines.
+Built with Fastify, React 18, Supabase RLS, and BullMQ/Local Queue.
+
+================================================================================
+1. END-TO-END DATA FLOW DIAGRAM
+================================================================================
+
++-------------------------------------------------------------------------------+
+|                               1. FRONTEND LAYERS                              |
+|                                                                               |
+|  [Landing Page]                                                               |
+|         |                                                                     |
+|         v                                                                     |
+|  [AuthContext] ======= (Strict Mode Singleton Init) ====> [Protected Route]   |
+|                                                                   |           |
+|                                                                   v           |
+|  [Student TestAttempt Page] <=============================> [Teacher Dashboard]|
+|         |                        (Real-time State)                    |       |
+|         |                                                             |       |
++---------|-------------------------------------------------------------|-------+
+          |                                                             |
+   [HTTPS: /api/start-attempt]                                 [HTTPS: /api/generate-test]
+   [HTTPS: /api/save-answer  ]                                 [HTTPS: /api/usage        ]
+          |                                                             |
+          v                                                             v
++---------|-------------------------------------------------------------|-------+
+|         |                     2. BACKEND LAYER (Fastify)              |       |
+|         |                                                             |       |
+|         v                                                             v       |
+|  [attemptRoutes.js]                                            [aiRoutes.js]  |
+|         |                                                             |       |
+|         |                                                     (Queues Job)    |
+|         v                                                             v       |
+|  [Supabase Admin Bypass]                                      [testQueue (Mock/Bull)]
+|         |                                                             |       |
++---------|-------------------------------------------------------------|-------+
+          |                                                             |
+          | (Writes Attempts & Answers)                                 v
+          |                                                     +---------------+
+          |                                                     |   Worker      |
+          |                                                     | (testWorker)  |
+          |                                                     +---------------+
+          |                                                             |
+          |                                                      1. Extract PDF Text
+          |                                                      2. Chunk Text (RAG)
+          |                                                      3. Call AI Model
+          |                                                      4. Write Questions to DB
+          |                                                             |
+          +---------------------> [ SUPABASE DB ] <---------------------+
+                                  - users / tests
+                                  - attempts / answers
+                                  - api_usage
+                                  - violations
+
+================================================================================
+2. COMPONENT DEEP DIVE & MINUTE ARCHITECTURE
+================================================================================
+
+--------------------------------------------------------------------------------
+A. FRONTEND STATE ENGINE
+--------------------------------------------------------------------------------
+1. Singleton Auth Provider (`AuthContext.jsx`):
+   - Combats React 18 Strict Mode double-mounting.
+   - Leverages an "Initialization Ref Guard" (`useRef(false)`) to guarantee that
+     the remote session state listener (via `supabase.auth.onAuthStateChange`) is
+     registered exactly ONCE.
+   - Recovers from browser token caches natively on boot before sending any RLS requests.
+   - Secure Logout Purge Flow: Upon logout, all session caching is destroyed. It invokes
+     a comprehensive nuke loop that programmatically iterates and expires all browser cookies, 
+     clears `localStorage` completely, and wipes `sessionStorage`, ensuring zero session footprints.
+   - Vercel SPA Routing Rewrite Guard (`vercel.json`): Since EvaliX is a Single Page Application (SPA),
+     a hard page refresh on sub-routes triggers a direct HTTP request to Vercel edge nodes. To prevent
+     404: NOT_FOUND failures, a custom rewrite configuration in `vercel.json` matches all non-static paths
+     and silently delegates them back to `/index.html` where React Router handles the target path natively.
+
+2. Student Test Attempt & Offline-First Sync (`TestAttemptPage.jsx`):
+   - Hydration Sync (Google Docs strategy):
+     When the test attempt mounts, the client reads state from both:
+     - SOURCE A: Remote Supabase database (via Fastify `/api/start-attempt`).
+     - SOURCE B: Browser local storage (`evalix_attempt_<attemptId>`).
+     Reconciliation Conflict Strategy:
+     - Whichever source has MORE answered questions wins.
+     - If local answers > server answers, local state merged with server is set,
+       preserving student progress during sudden disconnects.
+     - If server answers > local answers, server state is hydrated.
+   - Debounced Persistence Layer:
+     To avoid performance lag and local storage thrashing, all answer state writes
+     to local storage are debounced by 500ms using a timeout ref callback.
+   - Background Sync Engine:
+     Every 10 seconds, a background interval silently pushes all locally queued
+     answers to the server via `/api/save-answer`, ensuring the teacher sees
+     incremental progress. This runs non-blocking in the background.
+
+3. Live Proctoring & Tab Switch Protection (`TestAttemptPage.jsx`):
+   - Utilizes `document.addEventListener("visibilitychange")`.
+   - When `document.hidden` becomes true (tab switched, minimized, screen split),
+     the frontend calls `apiService.recordViolation(attemptId)`.
+   - The backend increases the violation count. On reaching 3, the attempt status
+     is set to `completed` and the server forces termination.
+   - A polling interval checks every 5s if the teacher manually set `test.status = 'ended'`.
+     If true, the UI auto-submits immediately.
+
+--------------------------------------------------------------------------------
+B. BACKEND FASTIFY ARCHITECTURE
+--------------------------------------------------------------------------------
+1. Server Engine (`server.js`):
+   - Global Rate Limiting: Integrates `@fastify/rate-limit` capped at 60 req/min
+     globally per User JWT ID or client IP.
+   - AI Generation Rate Limit: Capped at 30 req/min during developer sandboxing,
+     configured to drop down to 3 req/min in active production.
+   - Multipart Payload support up to 20MB file limit for high-fidelity OCR scanning.
+
+2. Queue & Background Job Engine (`queueService.js` / `testWorker.js`):
+   - Designed to run asynchronous tasks. In development, a memory-backed custom
+     queue (`QueueMock`) mirrors the BullMQ API. In production, this maps directly
+     to Redis/BullMQ.
+   - Job workflow:
+     [POST /api/generate-test] 
+               |
+               v
+     [testQueue.add('generate-test', payload)]
+               |
+               v
+     [testWorker picks up background job]
+               |
+               +---> 1. extractTextFromPDF()
+               +---> 2. splitIntoChunks() (RAG Chunking)
+               +---> 3. generateTestQuestions() (Groq Llama 3.3 API call)
+               +---> 4. Inserts parsed JSON into Supabase `questions` table
+               |
+               v
+     [Frontend polls /api/generate-test/status/:jobId until "completed"]
+
+3. AI Generation & Multi-Model Fallback Pipeline (`aiService.js`):
+   - Primary: Groq API Llama 3.3 70B Versatile model.
+   - High-Speed Fallback: Groq Llama 3.1 8B Instant model if Versatile rate limits.
+   - Disaster Fallback: Google Gemini API (if Groq is entirely offline).
+   - Scanned PDF Multimodal OCR Fallback: If `pdfService` extracts fewer than 50 text characters 
+     (scanned page or pure diagrams), a custom base64 token is passed to bypass chunking. EvaliX then 
+     directly sends the binary buffer as inline data to Gemini 2.0 Flash's multimodal vision API, 
+     performing a visual layout OCR to synthesize questions out of scanned diagrams or printed papers.
+   - deep Zod schemas check and strictly parse output to ensure valid MCQs with
+     correct correct_option (A, B, C, D) structure.
+
+--------------------------------------------------------------------------------
+C. DB LAYER & SECURITY (SUPABASE RLS & BYPASSES)
+================================================================================
+1. Row Level Security (RLS) Architecture:
+   - Supabase schema is secured by strict table-level RLS policies.
+   - Students can only read active tests and their own attempts/violations.
+   - Teachers can manage their own tests, batches, and view student telemetries.
+
+2. Backend Administrative Bypasses:
+   - When backend functions need to run telemetry compilations or batch usage
+     aggregations (which cross-reference multiple tables or run cron jobs), standard
+     user-scoped clients would fail due to RLS restrictions.
+   - To solve this deadlock, the backend utilizes `supabaseAdmin` initialized with
+     the `SUPABASE_SERVICE_ROLE_KEY` to read/write system metrics while keeping client
+     security strictly locked down.
+
+================================================================================
+3. CORE ARCHITECTURAL PIPELINES (SCHEMATIC FLOWS)
+================================================================================
+
+A. TEST GENERATION PIPELINE
+--------------------------------------------------------------------------------
+[Teacher Uploads PDF] -> [Fastify endpoint /generate-test] -> [Zod Validator]
+                                                                    |
++-------------------------------------------------------------------+
+|
+v
+[Queue Mock/BullMQ] -> [testWorker.js] -> [pdfService (Text Extraction)]
+                                                        |
++-------------------------------------------------------+
+|
+v
+[chunkService (RAG chunk size 2500, overlap 500)] -> [Select relevant chunks]
+                                                              |
++-------------------------------------------------------------+
+|
+v
+[aiService (Call Llama 3.3 70B JSON mode)] -> [Validators check formatting]
+                                                              |
++-------------------------------------------------------------+
+|
+v
+[Database insertion (questions table)] -> [Mark Job Completed] -> [Frontend Hydration]
+
+
+B. STUDENT ATTEMPT PIPELINE
+--------------------------------------------------------------------------------
+[Student Enters Test] -> [Hydrate from Local/Server (Sync win-state check)]
+                                   |
+                                   v
+                      [Start Timer & Visibility Listener]
+                                   |
+        +--------------------------+--------------------------+
+        |                                                     |
+  (Answer Clicked)                                      (Tab Switched)
+        |                                                     |
+        v                                                     v
+  [Immediate Server Sync]                             [recordViolation()]
+        |                                                     |
+  (If Fail: Queue in LocalStorage)               (Violations == 3 ? Auto-Submit)
+        |
+        v
+  [10s Background Sync Loop]
+
+
+C. TOKEN TRACKING & METRICS SYSTEM
+--------------------------------------------------------------------------------
+[AI Call Finish] -> [Calculate input + output tokens] -> [trackTokenUsage()]
+                                                                |
++---------------------------------------------------------------+
+|
+v
+[Insert api_usage table (user_id, model, tokens)]
+                                |
+v
+[Fetch stats via /api/usage (Aggregates usage metrics for dashboard)]
+
+================================================================================
+This is the complete, high-fidelity technical architecture of the EvaliX Platform.
+================================================================================
