@@ -72,6 +72,12 @@ async function start() {
 
   // ─── Global Error Handler ────────────────────────────────────────
   app.setErrorHandler((error, request, reply) => {
+    console.error('\n🚨 [BACKEND UNHANDLED ERROR] 🚨');
+    console.error(`Route: ${request.method} ${request.url}`);
+    if (request.body) console.error('Payload:', request.body);
+    console.error(error.stack || error);
+    console.error('────────────────────────────────────────────────────────────\n');
+
     request.log.error({ err: error }, 'Unhandled error');
 
     const statusCode = error.statusCode || 500;
@@ -95,3 +101,4 @@ async function start() {
 }
 
 start();
+// Force watch restart

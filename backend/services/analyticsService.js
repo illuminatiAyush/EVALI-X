@@ -10,17 +10,17 @@ class AnalyticsService {
       // 1. Fetch raw data from Supabase
       const [attemptsResponse, questionsResponse] = await Promise.all([
         supabaseAdmin
-          .from('test_attempts')
+          .from('attempts')
           .select(`
             *,
             student_id
           `)
-          .eq('assessment_id', assessmentId)
-          .not('submitted_at', 'is', null), // Only analyze completed attempts
+          .eq('test_id', assessmentId)
+          .in('status', ['completed', 'forced_end']), // Only analyze completed attempts
         supabaseAdmin
           .from('questions')
           .select('id, question, answer')
-          .eq('assessment_id', assessmentId) // Assumes Phase 1 schema link
+          .eq('test_id', assessmentId) // Map to actual questions foreign key
       ]);
 
       if (attemptsResponse.error) throw attemptsResponse.error;
@@ -59,9 +59,12 @@ class AnalyticsService {
       for (const attempt of attempts) {
         let studentScore = 0;
         const studentAnswers = attempt.answers || {};
+        const tabSwitches = studentAnswers._violations || 0;
 
         // Grade the attempt & build Item Analysis
         for (const [qId, studentAns] of Object.entries(studentAnswers)) {
+          if (qId === '_violations') continue;
+          
           const correctAns = answerKey.get(qId);
           const qStat = questionStats.get(qId);
           
@@ -82,17 +85,17 @@ class AnalyticsService {
         if (percentage < lowestScore) lowestScore = percentage;
 
         // Time Tracking
-        if (attempt.started_at && attempt.submitted_at) {
-          const timeMs = new Date(attempt.submitted_at) - new Date(attempt.started_at);
+        if (attempt.created_at && attempt.updated_at) {
+          const timeMs = new Date(attempt.updated_at) - new Date(attempt.created_at);
           const timeMins = timeMs / 1000 / 60;
           completionTimes.push(timeMins);
         }
 
         // Anti-Cheat Logging
-        if (attempt.tab_switches > 0) {
+        if (tabSwitches > 0) {
           antiCheatLog.push({
             studentId: attempt.student_id,
-            switches: attempt.tab_switches,
+            switches: tabSwitches,
             score: percentage,
             timeMins: completionTimes[completionTimes.length - 1] || 0
           });
@@ -104,9 +107,9 @@ class AnalyticsService {
           score: percentage,
           rawScore: studentScore,
           maxScore: maxScore,
-          tabSwitches: attempt.tab_switches,
+          tabSwitches: tabSwitches,
           timeTakenMins: completionTimes[completionTimes.length - 1] || 0,
-          submittedAt: attempt.submitted_at
+          submittedAt: attempt.updated_at
         });
       }
 

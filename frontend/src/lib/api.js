@@ -267,7 +267,7 @@ export const apiService = {
     if (violations >= 3) {
       const { data: updated } = await supabase
         .from('attempts')
-        .update({ answers: updatedAnswers, status: 'completed', submitted_at: new Date().toISOString() })
+        .update({ answers: updatedAnswers, status: 'completed', updated_at: new Date().toISOString() })
         .eq('id', attemptId)
         .select()
         .single();

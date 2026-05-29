@@ -36,45 +36,45 @@ export default function TeacherDashboard() {
   const [dashboardStats, setDashboardStats] = useState({ totalAttempts: 0, classAvg: 0 });
   const [attemptCounts, setAttemptCounts] = useState({});
 
+  const loadDashboardData = async () => {
+    try {
+      // Load tests
+      let testList = [];
+      try {
+        const data = await apiService.getMyTests();
+        testList = data || [];
+      } catch (err) {
+        console.warn('Could not load tests:', err.message);
+      }
+      
+      setTests(testList);
+
+      // Load stats
+      try {
+        const stats = await apiService.getTeacherDashboardStats();
+        setDashboardStats(stats);
+      } catch (err) {
+        console.warn('Could not load stats:', err.message);
+      }
+
+      // Load attempt counts
+      if (testList.length > 0) {
+        try {
+          const counts = await apiService.getTestAttemptCounts(testList.map(t => t.id));
+          setAttemptCounts(counts);
+        } catch (err) {
+          console.warn('Could not load attempt counts:', err.message);
+        }
+      }
+    } catch (err) {
+      console.error('Dashboard load error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
-
-    const loadDashboardData = async () => {
-      try {
-        // Load tests
-        let testList = [];
-        try {
-          const data = await apiService.getMyTests();
-          if (isMounted) testList = data || [];
-        } catch (err) {
-          console.warn('Could not load tests:', err.message);
-        }
-        
-        if (isMounted) setTests(testList);
-
-        // Load stats
-        try {
-          const stats = await apiService.getTeacherDashboardStats();
-          if (isMounted) setDashboardStats(stats);
-        } catch (err) {
-          console.warn('Could not load stats:', err.message);
-        }
-
-        // Load attempt counts
-        if (testList.length > 0) {
-          try {
-            const counts = await apiService.getTestAttemptCounts(testList.map(t => t.id));
-            if (isMounted) setAttemptCounts(counts);
-          } catch (err) {
-            console.warn('Could not load attempt counts:', err.message);
-          }
-        }
-      } catch (err) {
-        console.error('Dashboard load error:', err);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
 
     loadDashboardData();
 

@@ -75,7 +75,7 @@ async function attemptRoutes(fastify, options) {
             // Auto-submit expired attempt
             await supabaseAdmin
               .from('attempts')
-              .update({ status: 'completed', submitted_at: now.toISOString() })
+              .update({ status: 'completed', updated_at: now.toISOString() })
               .eq('id', attempt.id);
 
             return reply.status(403).send({
@@ -98,7 +98,6 @@ async function attemptRoutes(fastify, options) {
               test_id: testId,
               status: 'in_progress',
               answers: {},
-              started_at: now.toISOString(),
               ends_at: endsAt.toISOString(),
             })
             .select()
@@ -141,7 +140,6 @@ async function attemptRoutes(fastify, options) {
               id: attempt.id,
               status: attempt.status,
               answers: attempt.answers || {},
-              started_at: attempt.started_at,
               ends_at: attempt.ends_at,
             },
             questions: questions || [],
@@ -197,7 +195,7 @@ async function attemptRoutes(fastify, options) {
           // Mark as auto-submitted if way past deadline
           await supabaseAdmin
             .from('attempts')
-            .update({ status: 'completed', answers, submitted_at: endsAt.toISOString() })
+            .update({ status: 'completed', answers, updated_at: endsAt.toISOString() })
             .eq('id', attemptId);
 
           request.log.warn({ attemptId, userId }, 'Late submission detected — auto-marked at deadline');
@@ -225,7 +223,7 @@ async function attemptRoutes(fastify, options) {
           .update({
             status: 'completed',
             answers,
-            submitted_at: now.toISOString(),
+            updated_at: now.toISOString(),
           })
           .eq('id', attemptId);
 
@@ -281,7 +279,7 @@ async function attemptRoutes(fastify, options) {
     try {
       const { data: attempt, error } = await supabaseAdmin
         .from('attempts')
-        .select('id, status, ends_at, started_at')
+        .select('id, status, ends_at')
         .eq('id', id)
         .eq('student_id', userId)
         .single();
@@ -298,7 +296,7 @@ async function attemptRoutes(fastify, options) {
       if (remainingSeconds <= 0 && attempt.status === 'in_progress') {
         await supabaseAdmin
           .from('attempts')
-          .update({ status: 'completed', submitted_at: now.toISOString() })
+          .update({ status: 'completed', updated_at: now.toISOString() })
           .eq('id', id);
 
         return reply.send({

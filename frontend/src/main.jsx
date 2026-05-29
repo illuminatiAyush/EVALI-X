@@ -1,5 +1,6 @@
-// 🚨 CACHE BUSTER AUTO-RECOVERY
+// 🚨 CACHE BUSTER AUTO-RECOVERY & GLOBAL ERROR LOGGING
 window.addEventListener('error', (e) => {
+  console.error('🚨 [FRONTEND UNCAUGHT ERROR] 🚨\n', e.error || e.message, '\n', e);
   // If Vite fails to load a JS chunk because of a stale cache hash...
   if (
     e.message?.includes('Failed to fetch dynamically imported module') ||
@@ -19,6 +20,10 @@ window.addEventListener('error', (e) => {
     // 2. Force a hard reload from the server (bypassing browser cache)
     window.location.reload(true);
   }
+});
+
+window.addEventListener('unhandledrejection', (e) => {
+  console.error('🚨 [FRONTEND PROMISE REJECTION] 🚨\n', e.reason);
 });
 
 import React from 'react'
