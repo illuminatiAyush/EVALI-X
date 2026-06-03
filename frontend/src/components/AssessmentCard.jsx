@@ -39,9 +39,9 @@ export default function AssessmentCard({ assessment, onStartTest }) {
   const isActive = status === 'ACTIVE';
 
   return (
-    <div className={`p-6 border rounded-2xl transition-all ${isMissed ? 'bg-gray-50 opacity-60 border-gray-200 grayscale' : 'bg-white border-gray-200 shadow-sm'}`}>
-      <h3 className="text-xl font-bold text-gray-900">{title}</h3>
-      <p className="text-sm text-gray-500 mt-2 flex items-center gap-2">
+    <div className={`p-6 border rounded-2xl transition-all ${isMissed ? 'bg-surface-muted opacity-60 border-border grayscale' : 'bg-surface border-border shadow-sm'}`}>
+      <h3 className="text-xl font-bold text-text">{title}</h3>
+      <p className="text-sm text-text-muted mt-2 flex items-center gap-2">
         <span>⏱️ {duration_minutes} Minutes</span>
       </p>
       
@@ -56,7 +56,7 @@ export default function AssessmentCard({ assessment, onStartTest }) {
         {isLocked && (
           <div className="p-4 bg-blue-50/50 border border-blue-100 text-blue-800 rounded-xl flex items-center justify-between">
             <span className="text-sm font-semibold">Unlocks in:</span>
-            <span className="font-mono text-lg font-bold tracking-tight bg-white px-3 py-1 rounded shadow-sm">
+            <span className="font-mono text-lg font-bold tracking-tight bg-surface px-3 py-1 rounded shadow-sm">
               {timeLeft}
             </span>
           </div>

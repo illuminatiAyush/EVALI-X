@@ -94,8 +94,8 @@ export default function AssessmentAnalytics({ assessmentId }) {
       {/* ━━━ HEADER & ACTION ━━━ */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Assessment Analytics</h2>
-          <p className="text-gray-500 text-sm">Real-time performance and anti-cheat metrics</p>
+          <h2 className="text-2xl font-bold text-text">Assessment Analytics</h2>
+          <p className="text-text-muted text-sm">Real-time performance and anti-cheat metrics</p>
         </div>
         <button
           onClick={handleExportCSV}
@@ -135,8 +135,8 @@ export default function AssessmentAnalytics({ assessmentId }) {
       </div>
 
       {/* ━━━ ITEM ANALYSIS HEATMAP (Summary) ━━━ */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-        <h3 className="text-lg font-bold text-gray-900 mb-4">Question Item Analysis</h3>
+      <div className="bg-surface p-6 rounded-2xl shadow-sm border border-border">
+        <h3 className="text-lg font-bold text-text mb-4">Question Item Analysis</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
           {itemAnalysis.map((item, idx) => (
             <div 
@@ -157,15 +157,15 @@ export default function AssessmentAnalytics({ assessmentId }) {
       </div>
 
       {/* ━━━ THE ROSTER & ANTI-CHEAT GRID ━━━ */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h3 className="text-lg font-bold text-gray-900">Student Roster & Audit Log</h3>
+      <div className="bg-surface rounded-2xl shadow-sm border border-border overflow-hidden">
+        <div className="px-6 py-4 border-b border-border">
+          <h3 className="text-lg font-bold text-text">Student Roster & Audit Log</h3>
         </div>
         
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+              <tr className="bg-surface-muted text-text-muted text-xs uppercase tracking-wider">
                 <th className="px-6 py-4 font-semibold">Student ID</th>
                 <th className="px-6 py-4 font-semibold">Score</th>
                 <th className="px-6 py-4 font-semibold">Time Taken</th>
@@ -175,7 +175,7 @@ export default function AssessmentAnalytics({ assessmentId }) {
             <tbody className="divide-y divide-gray-100">
               {rawRoster.length === 0 ? (
                 <tr>
-                  <td colSpan="4" className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan="4" className="px-6 py-8 text-center text-text-muted">
                     No submissions yet.
                   </td>
                 </tr>
@@ -185,19 +185,19 @@ export default function AssessmentAnalytics({ assessmentId }) {
                   const isWarning = student.tabSwitches > 0 && student.tabSwitches < 3;
                   
                   return (
-                    <tr key={idx} className={`hover:bg-gray-50 transition-colors ${isHighRisk ? 'bg-red-50/30' : ''}`}>
+                    <tr key={idx} className={`hover:bg-surface-muted transition-colors ${isHighRisk ? 'bg-red-50/30' : ''}`}>
                       <td className="px-6 py-4">
-                        <span className="font-mono text-sm text-gray-600">
+                        <span className="font-mono text-sm text-text-muted">
                           {student.studentId.substring(0, 8)}...
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="font-bold text-gray-900">{student.score.toFixed(1)}%</span>
-                        <span className="text-xs text-gray-500 ml-2">
+                        <span className="font-bold text-text">{student.score.toFixed(1)}%</span>
+                        <span className="text-xs text-text-muted ml-2">
                           ({student.rawScore}/{student.maxScore})
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
+                      <td className="px-6 py-4 text-sm text-text-muted">
                         {student.timeTakenMins.toFixed(1)} mins
                       </td>
                       <td className="px-6 py-4">
