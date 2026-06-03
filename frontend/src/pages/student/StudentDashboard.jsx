@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { apiService } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
+import { debug } from '../../utils/debugLogger';
 import { 
   BookOpen, Clock, Trophy, CheckCircle2, BrainCircuit, ArrowRight, GraduationCap, Users
 } from 'lucide-react';
@@ -30,59 +31,91 @@ export default function StudentDashboard() {
   const [batches, setBatches] = useState([]);
   const [selectedBatchId, setSelectedBatchId] = useState(null);
 
+  // Real-time interval for dynamic dashboard unlocks
+  const [currentTime, setCurrentTime] = useState(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     let mounted = true;
 
     const loadDashboardData = async () => {
+      debug.db.info('Fetching Assessments & Stats for Student Dashboard');
       try {
-        let available = [];
+        let batchData = [];
+        let allTests = [];
+        let resultsMap = {};
+        
         try {
-          const batchData = await apiService.getBatches();
-          if (mounted && batchData?.data) {
-            setBatches(batchData.data);
+          const res = await apiService.getBatches();
+          if (mounted && res?.data) {
+            batchData = res.data;
+            setBatches(batchData);
           }
         } catch (err) {
-          console.warn('Could not load batches:', err.message);
+          debug.db.error('Could not load batches:', err.message);
         }
 
         try {
-          const allTests = await apiService.getMyTests();
-          const now = new Date();
-          available = (allTests || []).filter(test => {
-            if (test.status !== 'scheduled' && test.status !== 'active') return false;
-            return true;
-          }).map(test => {
-            // Mark tests that haven't started yet as 'upcoming'
-            const isUpcoming = test.status === 'scheduled' && test.start_time && new Date(test.start_time) > now;
-            return { ...test, _upcoming: isUpcoming };
-          });
+          const results = await apiService.getStudentResults();
+          if (results && results.length > 0) {
+            results.forEach(r => resultsMap[r.test_id] = true);
+          }
+          if (mounted) setAttemptMap(resultsMap);
         } catch (err) {
-          console.warn('Could not load tests:', err.message);
+          debug.db.error('Could not load results:', err.message);
         }
-        
-        if (mounted) setTests(available);
 
         try {
           const stats = await apiService.getStudentDashboardStats();
           if (mounted) setDashboardStats(stats);
         } catch (err) {
-          console.warn('Could not load stats:', err.message);
+          debug.db.error('Could not load stats:', err.message);
+        }
+        
+        try {
+          allTests = await apiService.getMyTests();
+        } catch (err) {
+          debug.db.error('Could not load tests:', err.message);
         }
 
-        if (available.length > 0) {
-          try {
-            const results = await apiService.getStudentResults();
-            const map = {};
-            if (results && results.length > 0) {
-              results.forEach(r => map[r.test_id] = true);
+        if (mounted) {
+          debug.db.info(`Fetch Success — Found ${allTests.length} total tests, ${Object.keys(resultsMap).length} attempts`);
+          const now = new Date();
+          const available = (allTests || []).filter(test => {
+            // 1. If test is already completed by student, hide from pending
+            if (resultsMap[test.id]) return false;
+            
+            // 2. Must be scheduled or active
+            if (test.status !== 'scheduled' && test.status !== 'active') return false;
+            
+            // 3. Expiration Logic
+            if (test.end_time) {
+              if (new Date(test.end_time) < now) return false;
+            } else {
+              // Legacy fallback: if no end_time, use start_time/created_at + duration + 1hr buffer
+              const baseTime = test.start_time ? new Date(test.start_time) : new Date(test.created_at);
+              const durationMs = (test.duration_minutes || 60) * 60000;
+              const bufferMs = 60 * 60000; // 1 hour buffer
+              const expiryTime = new Date(baseTime.getTime() + durationMs + bufferMs);
+              
+              if (now > expiryTime) return false; // Expired!
             }
-            if (mounted) setAttemptMap(map);
-          } catch (err) {
-            console.warn('Could not load results:', err.message);
-          }
+            
+            return true;
+          }).map(test => {
+            // A test is strictly "upcoming" (not yet available to start) if it is scheduled
+            // or if start_time is in the future.
+            const isUpcoming = test.status === 'scheduled' || (test.start_time && new Date(test.start_time) > now);
+            return { ...test, _upcoming: isUpcoming };
+          });
+          
+          setTests(available);
         }
       } catch (err) {
-        console.error('Dashboard load error:', err);
+        debug.db.error('Dashboard load error:', err);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -90,20 +123,50 @@ export default function StudentDashboard() {
 
     loadDashboardData();
 
-    // Set up realtime listener for new tests
+    // Set up realtime listener for test changes (start, end, restart, new assignments)
+    console.log('[REALTIME STATUS] Connecting to student-dashboard-tests channel...');
+    debug.realtime.info('Subscription Connected: student-dashboard-tests');
     const channel = supabase.channel('student-dashboard-tests')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'test_batches' }, () => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'test_batches' }, (payload) => {
+        debug.realtime.info('Test Batch Assigned', payload);
         toast.info('A new test was just assigned to your batch!');
         if (mounted) loadDashboardData();
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tests' }, () => {
-        // Also listen to tests in case it's a global test
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tests' }, (payload) => {
+        debug.realtime.info('New Global Test Inserted', payload);
         if (mounted) loadDashboardData();
       })
-      .subscribe();
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tests' }, (payload) => {
+        // Teacher started, ended, or restarted a test — refresh immediately
+        if (!mounted) return;
+        debug.realtime.info('Test Updated', payload);
+        console.log('[REALTIME PAYLOAD]', payload);
+        console.log('[TEST STATE BEFORE]', payload.old);
+        console.log('[TEST STATE AFTER]', payload.new);
+        
+        const newStatus = payload.new?.status;
+        if (newStatus === 'active') {
+          debug.student.info('Active Test Received', payload.new?.id);
+          toast.success('🟢 An assessment is now LIVE! You can start it.', { duration: 6000 });
+        } else if (newStatus === 'ended') {
+          debug.student.info('Terminated Test Received', payload.new?.id);
+        }
+        
+        loadDashboardData();
+      })
+      .on('system', { event: '*' }, (payload) => {
+        if (payload.extension === 'postgres_changes' && payload.type === 'CHANNEL_ERROR') {
+           console.error('[REALTIME CHANNEL_ERROR]', payload);
+        }
+      })
+      .subscribe((status, err) => {
+        console.log('[REALTIME CHANNEL] student-dashboard-tests');
+        console.log('[REALTIME STATUS]', status, err || '');
+      });
 
     return () => {
       mounted = false;
+      debug.realtime.info('Student Dashboard Realtime unmounted');
       supabase.removeChannel(channel);
     };
   }, []);
@@ -238,7 +301,9 @@ export default function StudentDashboard() {
               </Card>
             ))
           ) : (selectedBatchId ? tests.filter(t => t.batch_ids && t.batch_ids.includes(selectedBatchId)) : tests).length > 0 ? (
-            (selectedBatchId ? tests.filter(t => t.batch_ids && t.batch_ids.includes(selectedBatchId)) : tests).map((test) => (
+            (selectedBatchId ? tests.filter(t => t.batch_ids && t.batch_ids.includes(selectedBatchId)) : tests).map((test) => {
+              const isUpcoming = test.start_time ? (new Date(test.start_time) > currentTime) : (test.status === 'scheduled');
+              return (
               <motion.div variants={itemVariants} key={test.id}>
                 <Card p="lg" interactive className="flex flex-col h-full border-l-4 border-l-transparent hover:border-l-brand">
                   <div className="flex justify-between items-start mb-6">
@@ -264,7 +329,7 @@ export default function StudentDashboard() {
                         <span className="flex items-center gap-1 text-xs font-semibold text-emerald-500 uppercase">
                           <CheckCircle2 size={16} /> Completed
                         </span>
-                      ) : test._upcoming ? (
+                      ) : isUpcoming ? (
                         <span className="flex items-center gap-1 text-xs font-semibold text-amber-500 uppercase">
                           <Clock size={16} /> Starts {formatIST(test.start_time)}
                         </span>
@@ -282,7 +347,7 @@ export default function StudentDashboard() {
                       >
                         View Results
                       </Button>
-                    ) : test._upcoming ? (
+                    ) : isUpcoming ? (
                       <Button 
                         variant="outline"
                         disabled
@@ -301,7 +366,8 @@ export default function StudentDashboard() {
                   </div>
                 </Card>
               </motion.div>
-            ))
+              );
+            })
           ) : (
             <Card p="xl" className="col-span-full border-dashed flex flex-col items-center justify-center text-center py-20">
               <div className="w-16 h-16 bg-surface border border-border rounded-xl flex items-center justify-center mb-6 text-text-muted">

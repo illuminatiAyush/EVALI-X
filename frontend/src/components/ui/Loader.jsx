@@ -53,8 +53,8 @@ export function BrainPulse({ className = '' }) {
           </svg>
         </motion.div>
       </div>
-      <p className="mt-4 font-display font-bold text-gray-800 text-sm tracking-tight">Synthesizing Context...</p>
-      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mt-1 animate-pulse">Evalix AI Core</p>
+      <p className="mt-4 font-display font-bold text-text text-sm tracking-tight">Synthesizing Context...</p>
+      <p className="text-[10px] font-semibold text-text-muted uppercase tracking-widest mt-1 animate-pulse">Evalix AI Core</p>
     </div>
   );
 }
@@ -66,21 +66,21 @@ export function ShimmerCard({ count = 3, className = '' }) {
   return (
     <div className={`space-y-4 ${className}`}>
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="p-5 border border-gray-100 rounded-2xl bg-white shadow-soft relative overflow-hidden">
+        <div key={i} className="p-5 border border-border rounded-2xl bg-surface shadow-soft relative overflow-hidden">
           {/* Shimmer Effect */}
           <motion.div
             animate={{ x: ['-100%', '100%'] }}
             transition={{ duration: 1.6, repeat: Infinity, ease: 'linear' }}
-            className="absolute inset-0 bg-gradient-to-r from-transparent via-gray-50 to-transparent skew-x-[-15deg]"
+            className="absolute inset-0 bg-gradient-to-r from-transparent via-surface-muted to-transparent skew-x-[-15deg]"
             style={{ width: '200%' }}
           />
           <div className="flex items-center gap-4 relative z-10">
-            <div className="w-12 h-12 bg-gray-100 rounded-xl" />
+            <div className="w-12 h-12 bg-surface-muted rounded-xl animate-pulse" />
             <div className="flex-1 space-y-2">
-              <div className="h-4 bg-gray-100 rounded-md w-1/3" />
-              <div className="h-3 bg-gray-50 rounded-md w-1/2" />
+              <div className="h-4 bg-surface-muted rounded-md w-1/3 animate-pulse" />
+              <div className="h-3 bg-surface-muted/60 rounded-md w-1/2 animate-pulse" />
             </div>
-            <div className="w-16 h-7 bg-gray-100 rounded-lg" />
+            <div className="w-16 h-7 bg-surface-muted rounded-lg animate-pulse" />
           </div>
         </div>
       ))}
@@ -98,16 +98,16 @@ export function GlowingRing({ className = '' }) {
       <motion.div
         animate={{ rotate: 360 }}
         transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
-        className="absolute w-20 h-20 rounded-full border-t-2 border-r-transparent border-b-2 border-l-transparent border-teal-500"
+        className="absolute w-20 h-20 rounded-full border-t-2 border-r-transparent border-b-2 border-l-transparent border-brand"
       />
       {/* Inner loop */}
       <motion.div
         animate={{ rotate: -360 }}
         transition={{ duration: 1.6, repeat: Infinity, ease: 'linear' }}
-        className="absolute w-14 h-14 rounded-full border-t-2 border-r-teal-200 border-b-2 border-l-transparent border-orange-500"
+        className="absolute w-14 h-14 rounded-full border-t-2 border-r-teal-200 border-b-2 border-l-transparent border-accent"
       />
       {/* Center dot */}
-      <div className="w-3.5 h-3.5 bg-teal-500 rounded-full shadow-[0_0_10px_rgba(13,148,136,0.5)] animate-pulse" />
+      <div className="w-3.5 h-3.5 bg-brand rounded-full shadow-[0_0_10px_rgba(20,184,166,0.5)] animate-pulse" />
     </div>
   );
 }
@@ -117,12 +117,12 @@ export function GlowingRing({ className = '' }) {
  */
 export function FullPageLoader({ title = 'Initializing Session', subtitle = 'Preparing your workspace' }) {
   return (
-    <div className="min-h-screen bg-slate-50/50 flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-text transition-colors duration-200">
       <div className="relative mb-6">
         <GlowingRing />
       </div>
-      <h3 className="text-lg font-display font-extrabold text-gray-800 tracking-tight">{title}</h3>
-      <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mt-1.5">{subtitle}</p>
+      <h3 className="text-lg font-display font-extrabold text-text tracking-tight">{title}</h3>
+      <p className="text-xs font-semibold text-text-muted uppercase tracking-widest mt-1.5">{subtitle}</p>
     </div>
   );
 }

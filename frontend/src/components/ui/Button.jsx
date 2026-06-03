@@ -23,12 +23,12 @@ const Button = forwardRef(({
   };
 
   const variants = {
-    primary: "bg-teal-500 text-white hover:bg-teal-600 shadow-sm",
-    accent: "bg-orange-500 text-white hover:bg-orange-600 shadow-sm",
-    subtle: "bg-teal-50 text-teal-600 hover:bg-teal-100",
-    outline: "border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300",
-    danger: "bg-red-500 text-white hover:bg-red-600 shadow-sm",
-    ghost: "text-slate-500 hover:bg-slate-100 hover:text-slate-700",
+    primary: "bg-brand text-white hover:bg-brand-hover shadow-sm focus:ring-brand/30",
+    accent: "bg-accent text-white hover:bg-accent-hover shadow-sm focus:ring-accent/30",
+    subtle: "bg-brand-light text-brand hover:bg-brand/20",
+    outline: "border border-border text-text hover:bg-surface-muted hover:border-border-hover",
+    danger: "bg-danger text-white hover:bg-danger-hover shadow-sm focus:ring-danger/30",
+    ghost: "text-text-muted hover:bg-surface-muted hover:text-text",
   };
 
   const combinedClassName = `${base} ${sizes[size] || sizes.md} ${variants[variant] || variants.primary} ${className}`;

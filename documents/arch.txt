@@ -4,7 +4,7 @@
 
 This document details the minute-level architecture of the Evalix Platform (v2.0),
 detailing all layers, systems, engines, database schemas, and background pipelines.
-Built with Fastify, React 18, Supabase RLS, and BullMQ/Local Queue.
+Built with Fastify, React 18 (TanStack Query), Supabase RLS, Redis (Hybrid Caching), and BullMQ/Local Queue.
 
 ================================================================================
 1. END-TO-END DATA FLOW DIAGRAM
@@ -62,8 +62,13 @@ Built with Fastify, React 18, Supabase RLS, and BullMQ/Local Queue.
 ================================================================================
 
 --------------------------------------------------------------------------------
-A. FRONTEND STATE ENGINE
+A. FRONTEND STATE & CACHING ENGINE
 --------------------------------------------------------------------------------
+0. TanStack Query (Hybrid Caching - Step 2):
+   - The frontend abandons standard `useEffect` fetching for dashboards in favor of `@tanstack/react-query`.
+   - Global `QueryClient` configuration aggressively caches dashboard data with a `staleTime` of 5 minutes.
+   - UI non-blocking: Initial mounts trigger a skeleton loader (`isLoading`). Subsequent background data syncs (`isFetching`) happen silently without tearing down the existing UI, resulting in instant navigation.
+   - Real-time cache invalidation: Real-time Supabase postgres_changes instantly call `queryClient.invalidateQueries()`, seamlessly stitching WebSockets with HTTP state.
 1. Singleton Auth Provider (`AuthContext.jsx`):
    - Combats React 18 Strict Mode double-mounting.
    - Leverages an "Initialization Ref Guard" (`useRef(false)`) to guarantee that
@@ -81,13 +86,16 @@ A. FRONTEND STATE ENGINE
 2. Student Test Attempt & Offline-First Sync (`TestAttemptPage.jsx`):
    - Hydration Sync (Google Docs strategy):
      When the test attempt mounts, the client reads state from both:
-     - SOURCE A: Remote Supabase database (via Fastify `/api/start-attempt`).
+     - SOURCE A: Remote Supabase database (via Fastify `/api/start-attempt` with Redis).
      - SOURCE B: Browser local storage (`evalix_attempt_<attemptId>`).
      Reconciliation Conflict Strategy:
      - Whichever source has MORE answered questions wins.
      - If local answers > server answers, local state merged with server is set,
        preserving student progress during sudden disconnects.
      - If server answers > local answers, server state is hydrated.
+   - Legacy Fallback Expiration Check:
+     To prevent tests lacking an `end_time` from remaining active indefinitely, the dashboard
+     and API employ a fallback algorithm: `expiryTime = start_time + duration_minutes + 1 hour`.
    - Debounced Persistence Layer:
      To avoid performance lag and local storage thrashing, all answer state writes
      to local storage are debounced by 500ms using a timeout ref callback.
@@ -111,6 +119,9 @@ B. BACKEND FASTIFY ARCHITECTURE
 1. Server Engine (`server.js`):
    - Global Rate Limiting: Integrates `@fastify/rate-limit` capped at 60 req/min
      globally per User JWT ID or client IP.
+   - Redis Caching Layer (Hybrid Caching - Step 1): Integrates `@fastify/redis`. 
+     Heavy database lookups (like fetching 50 test questions) are stored in memory with a 3600s TTL. 
+     Fails gracefully directly to Supabase if the Redis server goes offline.
    - AI Generation Rate Limit: Capped at 30 req/min during developer sandboxing,
      configured to drop down to 3 req/min in active production.
    - Multipart Payload support up to 20MB file limit for high-fidelity OCR scanning.

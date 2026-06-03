@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { apiService } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
+import { useQueryClient } from '@tanstack/react-query';
+import { useTeacherDashboardData } from '../../hooks/useTeacherData';
+import { debug } from '../../utils/debugLogger';
 import { 
   PlusCircle, 
   FileText, 
@@ -31,97 +34,146 @@ const itemVariants = {
 };
 
 export default function TeacherDashboard() {
-  const [tests, setTests] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [dashboardStats, setDashboardStats] = useState({ totalAttempts: 0, classAvg: 0 });
-  const [attemptCounts, setAttemptCounts] = useState({});
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const queryClient = useQueryClient();
+  const { 
+    tests, 
+    stats: dashboardStats, 
+    attemptCounts, 
+    isLoading: loading, 
+    isFetching, 
+    error 
+  } = useTeacherDashboardData();
 
-  const loadDashboardData = async () => {
-    try {
-      // Load tests
-      let testList = [];
-      try {
-        const data = await apiService.getMyTests();
-        testList = data || [];
-      } catch (err) {
-        console.warn('Could not load tests:', err.message);
-      }
-      
-      setTests(testList);
-
-      // Load stats
-      try {
-        const stats = await apiService.getTeacherDashboardStats();
-        setDashboardStats(stats);
-      } catch (err) {
-        console.warn('Could not load stats:', err.message);
-      }
-
-      // Load attempt counts
-      if (testList.length > 0) {
-        try {
-          const counts = await apiService.getTestAttemptCounts(testList.map(t => t.id));
-          setAttemptCounts(counts);
-        } catch (err) {
-          console.warn('Could not load attempt counts:', err.message);
-        }
-      }
-    } catch (err) {
-      console.error('Dashboard load error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const pendingActions = React.useRef(new Set());
 
   useEffect(() => {
-    let isMounted = true;
+    // Set up realtime listener for new attempts and results, plus diagnostics for 'tests'
+    debug.realtime.info('Subscription Connected: teacher-dashboard-updates');
+    
+    const filterParams = { event: 'UPDATE', schema: 'public', table: 'tests' };
+    console.log('[REALTIME FILTER] Teacher Dashboard:', filterParams);
 
-    loadDashboardData();
-
-    // Set up realtime listener for new attempts and results
     const channel = supabase.channel('teacher-dashboard-updates')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attempts' }, () => {
-        if (isMounted) {
-          toast.info('A student has started taking a test.');
-          loadDashboardData();
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attempts' }, (payload) => {
+        debug.teacher.info('Student Attempt Started', payload);
+        toast.info('A student has started taking an assessment.');
+        queryClient.invalidateQueries(['dashboard-stats']);
+        queryClient.invalidateQueries(['attempt-counts']);
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'results' }, (payload) => {
+        debug.teacher.info('Student Attempt Submitted', payload);
+        toast.success('A student just submitted an assessment!');
+        queryClient.invalidateQueries(['dashboard-stats']);
+        queryClient.invalidateQueries(['attempt-counts']);
+      })
+      .on('postgres_changes', filterParams, (payload) => {
+        // DIAGNOSTIC LISTENER
+        console.log(`[MONITOR] Payload received at`, Date.now());
+        console.log('[REALTIME CHANNEL]', channel.topic);
+        console.log('[REALTIME PAYLOAD]', payload);
+        
+        // Clear the diagnostic timeout if this was our action
+        if (pendingActions.current.has(payload.new?.id)) {
+          pendingActions.current.delete(payload.new?.id);
+          debug.realtime.info(`Successfully received realtime broadcast for test ${payload.new?.id}`);
         }
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'results' }, () => {
-        if (isMounted) {
-          toast.success('A student just submitted a test!');
-          loadDashboardData();
+      .on('system', { event: '*' }, (payload) => {
+        if (payload.extension === 'postgres_changes' && payload.type === 'CHANNEL_ERROR') {
+           console.error('[REALTIME CHANNEL_ERROR]', payload);
         }
       })
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log(`[MONITOR] Subscribed at`, Date.now());
+        console.log('[REALTIME CHANNEL] teacher-dashboard-updates');
+        console.log('[REALTIME STATUS]', status, err || '');
+      });
 
     return () => {
-      isMounted = false;
+      debug.realtime.info('Unsubscribing from teacher-dashboard-updates');
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [queryClient]);
+
+  // Diagnostic timeout wrapper
+  const monitorRealtimeAction = (testId) => {
+    console.log(`[MONITOR] Update sent at`, Date.now());
+    debug.realtime.info(`Starting realtime monitor for test ${testId} (waiting up to 15s)`);
+    pendingActions.current.add(testId);
+    setTimeout(() => {
+      if (pendingActions.current.has(testId)) {
+        console.warn(`[REALTIME WARNING] No broadcast received for ${testId} after 15s. This is normal if the backend update completed successfully.`);
+        pendingActions.current.delete(testId);
+      }
+    }, 15000);
+  };
 
   const handleStartTest = async (testId) => {
+    console.log('[START TEST] Button clicked', testId);
+    console.log('[START TEST] Entering handler');
+    debug.teacher.info('Assessment Started manually', { testId });
     try {
-      await apiService.updateTestStatus(testId, 'start');
+      monitorRealtimeAction(testId);
+      console.log('[START TEST] Sending request to apiService');
+      const res = await apiService.updateTestStatus(testId, 'start');
+      console.log('[START TEST] Response', res);
       toast.success('Assessment started manually. It is now active.');
-      loadDashboardData();
+      queryClient.invalidateQueries({ queryKey: ['assessments'] });
     } catch (err) {
+      console.error('[START TEST] Error in handler', err);
+      debug.teacher.error('Failed to start assessment', err);
       toast.error(err.message || 'Failed to start assessment');
     }
   };
 
   const handleEndTest = async (testId) => {
+    console.log('[TERMINATE] Button clicked', testId);
     toast('Force-end this assessment?', {
       description: 'All active attempts will be auto-submitted.',
       action: {
         label: 'Terminate',
         onClick: async () => {
+          console.log('[TERMINATE] Entering handler for', testId);
+          debug.teacher.info('Assessment Terminated manually', { testId });
           try {
-            await apiService.updateTestStatus(testId, 'end');
+            monitorRealtimeAction(testId);
+            console.log('[TERMINATE] Sending terminate request to API');
+            const res = await apiService.updateTestStatus(testId, 'end');
+            console.log('[TERMINATE] API Response', res);
             toast.success('Assessment force-ended successfully.');
-            loadDashboardData();
+            queryClient.invalidateQueries({ queryKey: ['assessments'] });
           } catch (err) {
+            console.error('[TERMINATE] API Error', err);
+            debug.teacher.error('Failed to terminate assessment', err);
             toast.error(err.message || 'Failed to force-end assessment');
+          }
+        },
+      },
+      cancel: { label: 'Cancel' },
+    });
+  };
+
+  const handleRestartTest = async (testId) => {
+    console.log('[RESTART] Button clicked', testId);
+    toast('Restart this assessment?', {
+      description: 'This will reset the end time and make it active again.',
+      action: {
+        label: 'Restart',
+        onClick: async () => {
+          console.log('[RESTART] Entering handler for', testId);
+          debug.teacher.info('Assessment Restarted manually', { testId });
+          try {
+            monitorRealtimeAction(testId);
+            console.log('[RESTART] Sending restart request to API');
+            const res = await apiService.updateTestStatus(testId, 'restart');
+            console.log('[RESTART] API Response', res);
+            toast.success('Assessment restarted successfully.');
+            queryClient.invalidateQueries({ queryKey: ['assessments'] });
+          } catch (err) {
+            console.error('[RESTART] API Error', err);
+            debug.teacher.error('Failed to restart assessment', err);
+            toast.error(err.message || 'Failed to restart assessment');
           }
         },
       },
@@ -189,7 +241,7 @@ export default function TeacherDashboard() {
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-display font-bold flex items-center gap-3">
               <div className="w-2 h-6 bg-brand rounded-sm"></div>
-              Active Evaluations
+              Active Evaluations {isFetching && !loading && <span className="text-xs text-text-muted bg-surface px-2 py-1 rounded">Syncing...</span>}
             </h2>
             <Link to="#" className="text-sm font-semibold text-brand hover:underline underline-offset-4 uppercase tracking-wider">View All</Link>
           </div>
@@ -202,7 +254,11 @@ export default function TeacherDashboard() {
               </div>
             ) : tests.length > 0 ? (
               <div className="divide-y divide-border">
-                {tests.map((test) => (
+                {tests.map((test) => {
+                  const isExpired = test.end_time && test.status !== 'ended' ? (new Date(test.end_time) < currentTime) : false;
+                  const displayStatus = isExpired ? 'ended' : test.status;
+                  
+                  return (
                   <div key={test.id} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-surface transition-colors group gap-4">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-surface border border-border rounded-xl flex items-center justify-center text-text-muted group-hover:bg-brand/10 group-hover:text-brand transition-colors">
@@ -212,11 +268,11 @@ export default function TeacherDashboard() {
                         <h3 className="font-display font-bold group-hover:text-brand transition-colors">{test.title}</h3>
                         <div className="flex items-center gap-3 mt-1 text-xs font-semibold text-text-muted">
                           <span className={`px-2 py-0.5 rounded-sm uppercase tracking-widest ${
-                            test.status === 'scheduled' ? 'bg-emerald-500/10 text-emerald-500' :
-                            test.status === 'active' ? 'bg-brand/10 text-brand' :
-                            test.status === 'ended' ? 'bg-surface text-text-muted border border-border' : 'bg-amber-500/10 text-amber-500'
+                            displayStatus === 'scheduled' ? 'bg-emerald-500/10 text-emerald-500' :
+                            displayStatus === 'active' ? 'bg-brand/10 text-brand' :
+                            displayStatus === 'ended' ? 'bg-surface text-text-muted border border-border' : 'bg-amber-500/10 text-amber-500'
                           }`}>
-                            {test.status}
+                            {displayStatus}
                           </span>
                           <span className="w-1 h-1 rounded-full bg-border"></span>
                           <span className="flex items-center gap-1 uppercase">
@@ -232,25 +288,34 @@ export default function TeacherDashboard() {
                         <p className="text-xs font-semibold text-text-muted uppercase tracking-widest mt-1">Submissions</p>
                       </div>
                       <div className="flex items-center gap-3">
-                        {test.status === 'scheduled' && (
-                          <>
-                            <Button 
-                              onClick={() => handleStartTest(test.id)}
-                              variant="primary"
-                              className="px-3 py-1.5 text-xs bg-emerald-500 hover:bg-emerald-600 text-white border-transparent"
-                            >
-                              Start Now
-                            </Button>
-                            <Button 
-                              onClick={() => handleEndTest(test.id)}
-                              variant="danger"
-                              className="px-3 py-1.5 text-xs"
-                            >
-                              Terminate
-                            </Button>
-                          </>
+                        {displayStatus === 'scheduled' && (
+                          <Button 
+                            onClick={() => handleStartTest(test.id)}
+                            variant="primary"
+                            className="px-3 py-1.5 text-xs bg-emerald-500 hover:bg-emerald-600 text-white border-transparent"
+                          >
+                            Start Now
+                          </Button>
                         )}
-                        {test.status === 'draft' ? (
+                        {(displayStatus === 'scheduled' || displayStatus === 'active') && (
+                          <Button 
+                            onClick={() => handleEndTest(test.id)}
+                            variant="danger"
+                            className={`px-3 py-1.5 text-xs ${displayStatus === 'active' ? 'animate-pulse' : ''}`}
+                          >
+                            Terminate
+                          </Button>
+                        )}
+                        {displayStatus === 'ended' && (
+                          <Button 
+                            onClick={() => handleRestartTest(test.id)}
+                            variant="primary"
+                            className="px-3 py-1.5 text-xs bg-amber-500 hover:bg-amber-600 text-white border-transparent"
+                          >
+                            Restart
+                          </Button>
+                        )}
+                        {displayStatus === 'draft' ? (
                           <Button 
                             to={`/teacher/test/${test.id}`} 
                             variant="outline"
@@ -272,7 +337,8 @@ export default function TeacherDashboard() {
                       </div>
                     </div>
                   </div>
-                ))}
+                );
+                })}
               </div>
             ) : (
               <div className="p-20 text-center">

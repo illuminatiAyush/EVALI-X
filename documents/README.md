@@ -30,8 +30,8 @@ EvaliX utilizes a modern **Hybrid Architecture** designed to maximize security, 
 
 | Layer | Technology | Primary Responsibility |
 | :--- | :--- | :--- |
-| **Frontend** | React 18 + Vite | Handles high-performance routing, animations (Framer Motion), state management, and real-time anti-cheat monitoring on the client side. |
-| **Backend** | Node.js + Fastify | A dedicated server responsible for parsing heavy PDF files, orchestrating requests to Large Language Models (LLMs), and securely storing API keys. |
+| **Frontend** | React 18 (TanStack Query) + Vite | Handles high-performance routing, animations (Framer Motion), state management, and real-time anti-cheat monitoring on the client side. Includes global query caching to eliminate UI-blocking loading states. |
+| **Backend** | Node.js + Fastify (Redis) | A dedicated server responsible for parsing heavy PDF files, orchestrating requests to Large Language Models (LLMs), securely storing API keys, and caching heavy DB reads via Redis. |
 | **Database & Auth** | Supabase (PostgreSQL) | Handles robust JWT session management, strictly enforced Row Level Security (RLS) policies, and instantaneous data fetching. |
 
 ---
@@ -59,13 +59,27 @@ The frontend enforces strict testing integrity through a multi-layered proctorin
 
 ---
 
+## 🔒 API Security & Access Control
+
+EvaliX is hardened against malicious scraping and unauthorized data access:
+
+| Security Protocol | Description |
+| :--- | :--- |
+| **Pre-Flight Time Validation** | The Fastify backend strictly enforces IST (Indian Standard Time) server comparisons **before** querying test questions. If a test has not started, the API rejects the request (403 Forbidden) and entirely strips the questions payload to prevent Postman/cURL scraping. |
+| **Dynamic Frontend Locks** | The React UI uses precise 1000ms heartbeat intervals to dynamically evaluate time boundaries. If a user attempts to time-travel by altering their system clock, the backend instantly rejects their start request and gracefully redirects them with a Toast notification. |
+| **Memory-Safe Timeouts** | Backend database operations are wrapped in safe `Promise.race` timeouts with strict garbage collection to prevent memory leaks and unhandled promise rejections that could crash the Node.js server. |
+
+---
+
 ## 🛠️ Tech Stack
 
 | Category | Technology | Description |
 | :--- | :--- | :--- |
 | **Frontend Framework** | React 18, Vite | High-performance SPA with strict-mode hydration. |
+| **State Caching (FE)**| TanStack Query | Instantaneous UX caching with background `isFetching` synchronization. |
 | **Styling & UI** | TailwindCSS, Framer Motion | Premium, accessible, dark/light mode SaaS design. |
 | **Backend Server** | Node.js, Fastify | High-throughput API server with `multipart/form-data` support. |
+| **Memory Caching (BE)**| Redis (`@fastify/redis`)| Enterprise-grade cache protection against database DDoS during mass test starts. |
 | **Database & Auth** | Supabase, PostgreSQL | Relational data, RLS security, and session management. |
 | **AI Inference** | Groq (Llama-3), Gemini | Ultra-fast LLMs for generating diverse question banks. |
 | **PDF Processing** | `pdf-parse` (Node) | Server-side text extraction to prevent client-side memory leaks. |

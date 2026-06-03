@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -26,7 +27,10 @@ export default {
         background: 'var(--background)',
         surface: 'var(--surface)',
         'surface-muted': 'var(--surface-muted)',
-        border: 'var(--border)',
+        border: {
+          DEFAULT: 'var(--border)',
+          hover: 'var(--border-hover)',
+        },
         text: {
           DEFAULT: 'var(--text)',
           muted: 'var(--text-muted)',

@@ -57,6 +57,7 @@ async function testRoutes(fastify, options) {
       try {
         const { id } = request.params;
         const { action } = request.body;
+        console.log(`[BACKEND ROUTE] /test-status/${id} called with action: ${action}`);
         const token = request.headers.authorization.replace('Bearer ', '');
         const userId = request.user.id;
 
@@ -67,18 +68,91 @@ async function testRoutes(fastify, options) {
         }
 
         request.log.info({ userId, testId: id, action }, 'Test status change');
-
+        console.log(`[BACKEND ROUTE] Calling TestService.updateTestStatus`);
+        
         const test = await TestService.updateTestStatus(token, userId, id, action);
-
+        
+        console.log(`[BACKEND ROUTE] Success. Returning test data:`, test?.id);
         return reply.send({
           success: true,
           data: test,
         });
       } catch (error) {
+        console.error(`[BACKEND ROUTE] Error:`, error);
         request.log.error({ err: error }, 'Failed to update test status');
         return reply.status(500).send({
           success: false,
           error: error.message || 'Failed to update test status',
+        });
+      }
+    },
+  });
+
+  /**
+   * PUT /api/update-test/:id
+   * General-purpose test update (schedule, edit metadata, etc.)
+   */
+  fastify.put('/update-test/:id', {
+    handler: async (request, reply) => {
+      try {
+        const { id } = request.params;
+        const updates = request.body;
+        const token = request.headers.authorization.replace('Bearer ', '');
+        const userId = request.user.id;
+
+        // Validate UUID format
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(id)) {
+          return reply.status(400).send({ success: false, error: 'Invalid test ID format' });
+        }
+
+        // Whitelist allowed fields to prevent injection
+        const allowed = ['title', 'difficulty', 'duration_minutes', 'start_time', 'end_time', 'status'];
+        const safeUpdates = {};
+        for (const key of allowed) {
+          if (updates[key] !== undefined) {
+            safeUpdates[key] = updates[key];
+          }
+        }
+
+        if (Object.keys(safeUpdates).length === 0) {
+          return reply.status(400).send({ success: false, error: 'No valid fields to update' });
+        }
+
+        // Coerce duration_minutes to integer
+        if (safeUpdates.duration_minutes) {
+          safeUpdates.duration_minutes = parseInt(safeUpdates.duration_minutes, 10);
+        }
+
+        request.log.info({ userId, testId: id, updates: safeUpdates }, 'Updating test');
+
+        const { createUserClient } = require('../utils/supabaseClient');
+        const supabase = createUserClient(token);
+
+        const { data, error } = await TestService.withTimeout(
+          supabase
+            .from('tests')
+            .update(safeUpdates)
+            .eq('id', id)
+            .eq('created_by', userId)
+            .select()
+        );
+
+        if (error) {
+          request.log.error({ err: error }, 'Supabase update failed');
+          return reply.status(500).send({ success: false, error: error.message });
+        }
+
+        if (!data || data.length === 0) {
+          return reply.status(404).send({ success: false, error: 'Test not found or no permission to update.' });
+        }
+
+        return reply.send({ success: true, data: data[0] });
+      } catch (error) {
+        request.log.error({ err: error }, 'Failed to update test');
+        return reply.status(500).send({
+          success: false,
+          error: error.message || 'Failed to update test',
         });
       }
     },

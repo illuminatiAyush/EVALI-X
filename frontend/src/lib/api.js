@@ -267,7 +267,7 @@ export const apiService = {
     if (violations >= 3) {
       const { data: updated } = await supabase
         .from('attempts')
-        .update({ answers: updatedAnswers, status: 'completed', updated_at: new Date().toISOString() })
+        .update({ answers: updatedAnswers, status: 'submitted', updated_at: new Date().toISOString() })
         .eq('id', attemptId)
         .select()
         .single();
@@ -312,46 +312,67 @@ export const apiService = {
   },
 
   /**
-   * Updates a test (direct Supabase — teacher only, RLS protected).
+   * Updates a test via backend (avoids direct Supabase hangs).
    */
   async updateTest(id, updates) {
     const { data: { session } } = await supabase.auth.getSession();
-    const user = session?.user;
+    if (!session) throw new Error('Unauthorized');
 
-    const { data: test, error } = await supabase
-      .from('tests')
-      .update(updates)
-      .eq('id', id)
-      .eq('created_by', user.id)
-      .select()
-      .single();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    if (error) throw new Error(error.message || 'Failed to update test');
-    return test;
+    try {
+      const response = await fetch(`${BACKEND_URL}/update-test/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(updates),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to update test');
+      }
+      return result.data;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        throw new Error('Request timed out. Please check your connection and try again.');
+      }
+      throw err;
+    }
   },
 
   /**
    * Changes test status via backend (handles force-ending attempts server-side).
    */
-  async updateTestStatus(id, action) {
+  updateTestStatus: async (id, action) => {
+    console.log(`[API SERVICE] updateTestStatus called for id: ${id}, action: ${action}`);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('Unauthorized');
-
+    
     const response = await fetch(`${BACKEND_URL}/test-status/${id}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
+        Authorization: `Bearer ${session.access_token}`,
       },
       body: JSON.stringify({ action }),
     });
 
-    const result = await response.json();
-    if (!response.ok || !result.success) {
-      throw new Error(result.error || `Failed to ${action} test`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error(`[API SERVICE] Error response:`, errorData);
+      throw new Error(errorData.error || 'Failed to update test status');
     }
 
-    return result.data;
+    const json = await response.json();
+    console.log(`[API SERVICE] Success response:`, json);
+    return json.data;
   },
 
   /**
@@ -360,7 +381,7 @@ export const apiService = {
   async getTestResults(id) {
     const { data, error } = await supabase
       .from('results')
-      .select('*, student:profiles(name, email)')
+      .select('*, student:profiles(name, email), attempt:attempts(answers)')
       .eq('test_id', id)
       .order('created_at', { ascending: false });
 

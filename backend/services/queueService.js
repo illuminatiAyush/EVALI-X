@@ -22,6 +22,7 @@ class JobMock {
     this.state = 'waiting';
     this.returnvalue = null;
     this.failedReason = null;
+    this.createdAt = Date.now();
   }
   updateProgress(val) { this.progress = val; }
   async getState() { return this.state; }
@@ -50,8 +51,20 @@ class QueueMock {
 
 const testQueue = new QueueMock('test-generation');
 
+// Auto-cleanup completed/failed jobs after 5 minutes to prevent memory leak
+setInterval(() => {
+  const now = Date.now();
+  const FIVE_MIN = 5 * 60 * 1000;
+  for (const [id, job] of jobsDB) {
+    if ((job.state === 'completed' || job.state === 'failed') && (now - job.createdAt > FIVE_MIN)) {
+      jobsDB.delete(id);
+    }
+  }
+}, 60_000); // Run cleanup every 60 seconds
+
 module.exports = {
   testQueue,
   jobsDB, // Expose for the mock worker
   registerWorkerCallback: (cb) => eventEmitters.push(cb)
 };
+

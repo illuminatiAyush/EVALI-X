@@ -38,7 +38,7 @@ async function extractTextFromPDF(fileBuffer) {
     
     text = text.trim();
 
-    if (text.length < 50) {
+    if (text.length < 10) {
       logger.info('Low readable text length. Triggering multimodal/OCR fallback for scanned PDF.');
       return `__SCANNED_PDF_FALLBACK_BASE64__:${fileBuffer.toString('base64')}`;
     }

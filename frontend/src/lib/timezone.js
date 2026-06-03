@@ -1,7 +1,7 @@
 /**
- * Timezone utilities for Evalix
- * All times displayed in Asia/Kolkata (IST, GMT+5:30)
- */
+* Timezone utilities for Evalix
+* All times displayed in Asia/Kolkata (IST, GMT+5:30)
+*/
 
 const TIMEZONE = 'Asia/Kolkata';
 
@@ -58,7 +58,7 @@ export function localInputToISO(localDateTimeStr) {
     const [datePart, timePart] = localDateTimeStr.split('T');
     const [year, month, day] = datePart.split('-');
     const [hour, minute] = timePart.split(':');
-    
+
     // new Date(year, monthIndex, day, hours, minutes) explicitly uses the local timezone
     const d = new Date(year, month - 1, day, hour, minute);
     if (isNaN(d.getTime())) return null;

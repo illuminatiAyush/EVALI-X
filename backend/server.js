@@ -55,6 +55,43 @@ async function start() {
   // Start Background Workers
   require('./workers/testWorker');
 
+  // ─── Redis Cache Setup (Graceful Fallback) ───────────────────────
+  try {
+    const Redis = require('ioredis');
+    const redisClient = new Redis({
+      host: process.env.REDIS_HOST || '127.0.0.1',
+      port: process.env.REDIS_PORT || 6379,
+      password: process.env.REDIS_PASSWORD || '',
+      connectTimeout: 2000,
+      maxRetriesPerRequest: 1,
+      retryStrategy(times) {
+        if (times > 3) return null;
+        return Math.min(times * 50, 2000);
+      }
+    });
+
+    // Suppress unhandled connection errors from crashing the process
+    redisClient.on('error', () => {});
+
+    // Bypass @fastify/redis completely to avoid its broken onEnd listener
+    app.decorate('redis', redisClient);
+    
+    // Safely teardown Redis on server close
+    app.addHook('onClose', async (instance) => {
+      if (instance.redis) {
+        try {
+          await instance.redis.quit();
+        } catch (err) {
+          instance.redis.disconnect();
+        }
+      }
+    });
+
+    app.log.info('Redis cache initialized successfully');
+  } catch (err) {
+    app.log.warn('Redis connection failed. Running in DB-only mode.');
+  }
+
   // ─── Routes ──────────────────────────────────────────────────────
   app.register(require('./routes/aiRoutes'), { prefix: '/api' });
   app.register(require('./routes/testRoutes'), { prefix: '/api' });

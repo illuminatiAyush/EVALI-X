@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiService } from '../../lib/api';
+import { supabase } from '../../lib/supabase';
 import { useAntiCheat } from '../../hooks/useAntiCheat';
+import { debug } from '../../utils/debugLogger';
 import { 
   Clock, 
   ChevronRight, 
@@ -31,6 +33,7 @@ export default function TestAttemptPage() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
   const [violationWarning, setViolationWarning] = useState(false);
+  const [error, setError] = useState(null);
 
   const attemptRef = useRef(null);
 
@@ -127,13 +130,18 @@ export default function TestAttemptPage() {
         setTimeLeft(data.remaining_seconds || 0);
       }
 
-      if (data.attempt.status === 'completed') {
+      if (data.attempt.status === 'submitted') {
         setIsSubmitted(true);
       }
     } catch (err) {
       console.error('Error starting attempt:', err);
-      toast.error('Failed to initialize session.');
-      navigate('/student/dashboard');
+      const errMsg = err.message || 'Failed to initialize session.';
+      if (errMsg.includes('has not started') || errMsg.includes('not currently available')) {
+        toast.error('Please wait for the official server time.');
+        navigate('/student/dashboard', { replace: true });
+        return;
+      }
+      setError(errMsg);
     } finally {
       setLoading(false);
     }
@@ -165,11 +173,10 @@ export default function TestAttemptPage() {
       if (Object.keys(currentAnswers).length === 0) return;
 
       try {
-        // Find the question IDs for each answered index and sync them
-        for (const [qIndex, answer] of Object.entries(currentAnswers)) {
-          const question = questions[parseInt(qIndex)];
-          if (question?.id && answer) {
-            await apiService.saveAnswer(attempt.id, question.id, answer);
+        // Answers are keyed by question UUID — sync each directly
+        for (const [questionId, answer] of Object.entries(currentAnswers)) {
+          if (questionId && answer) {
+            await apiService.saveAnswer(attempt.id, questionId, answer);
           }
         }
       } catch (err) {
@@ -182,8 +189,7 @@ export default function TestAttemptPage() {
   }, [attempt, isSubmitted, questions]);
 
   const handleAnswer = (questionId, answer) => {
-    const qIndex = currentQuestion;
-    setAnswers(prev => ({ ...prev, [qIndex]: answer }));
+    setAnswers(prev => ({ ...prev, [questionId]: answer }));
     
     // Immediate remote sync for this specific answer (fire-and-forget)
     if (attempt?.id) {
@@ -198,7 +204,7 @@ export default function TestAttemptPage() {
     if (isSubmitting || isSubmitted || !attempt) return;
     setIsSubmitting(true);
     try {
-      await apiService.submitAttempt(attempt.id, reason);
+      await apiService.submitAttempt(attempt.id, answersRef.current);
       localStorage.removeItem(`evalix_attempt_${attempt.id}`);
       setIsSubmitted(true);
       toast.error(`Session Ended: ${reason}`);
@@ -245,24 +251,48 @@ export default function TestAttemptPage() {
     return () => clearInterval(timer);
   }, [attempt, isSubmitted, forceSubmit]);
 
-  // ━━━ TEACHER-INITIATED TERMINATION POLLING ━━━
+  // ━━━ TEACHER-INITIATED TERMINATION (REALTIME) ━━━
   useEffect(() => {
-    if (isSubmitted || !attempt) return;
+    if (!id || !attempt || isSubmitted) return;
 
-    const interval = setInterval(async () => {
-      try {
-        const data = await apiService.getTestById(id);
-        if (data.status === 'ended') {
-          toast.error("Session ended by instructor. Auto-submitting...");
-          handleSubmit('teacher_stopped');
+    let mounted = true;
+    debug.realtime.info(`Attempting to subscribe to realtime updates for test ${id}`);
+
+    const filterParams = { event: 'UPDATE', schema: 'public', table: 'tests', filter: `id=eq.${id}` };
+    console.log('[REALTIME FILTER] TestAttemptPage:', filterParams);
+
+    const channel = supabase.channel(`student-attempt-${id}`)
+      .on('postgres_changes', filterParams, (payload) => {
+        if (!mounted) return;
+        debug.realtime.info('Test Updated during attempt', payload);
+        console.log('[REALTIME CHANNEL]', channel.topic);
+        console.log('[REALTIME PAYLOAD]', payload);
+        console.log('[TEST STATE BEFORE]', payload.old);
+        console.log('[TEST STATE AFTER]', payload.new);
+        
+        const newStatus = payload.new?.status;
+        if (newStatus === 'ended') {
+          debug.student.info('Auto Submit Triggered (Instructor Terminated)');
+          toast.error("Session ended by instructor. Auto-submitting...", { duration: Infinity });
+          forceSubmit('Instructor Terminated');
         }
-      } catch (err) {
-        console.error('Status check error', err);
-      }
-    }, 5000);
+      })
+      .on('system', { event: '*' }, (payload) => {
+        if (payload.extension === 'postgres_changes' && payload.type === 'CHANNEL_ERROR') {
+           console.error('[REALTIME CHANNEL_ERROR]', payload);
+        }
+      })
+      .subscribe((status, err) => {
+        console.log(`[REALTIME CHANNEL] student-attempt-${id}`);
+        console.log('[REALTIME STATUS]', status, err || '');
+      });
 
-    return () => clearInterval(interval);
-  }, [id, isSubmitted, attempt]);
+    return () => {
+      mounted = false;
+      debug.realtime.info(`Unsubscribing from student-attempt-${id}`);
+      supabase.removeChannel(channel);
+    };
+  }, [id, attempt, isSubmitted, forceSubmit]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -273,7 +303,7 @@ export default function TestAttemptPage() {
   const handleSubmit = async (reason = 'completed') => {
     setIsSubmitting(true);
     try {
-      await apiService.submitAttempt(attempt.id, reason);
+      await apiService.submitAttempt(attempt.id, answersRef.current);
       
       // Clear persistence on successful submission
       localStorage.removeItem(`evalix_attempt_${attempt.id}`);
@@ -297,6 +327,34 @@ export default function TestAttemptPage() {
         <div className="w-14 h-14 border-4 border-background border-t-brand rounded-full animate-spin mb-6 shadow-soft"></div>
         <p className="text-text font-display font-bold text-xl">Loading Assessment...</p>
         <p className="text-text-muted text-xs font-semibold uppercase tracking-wider mt-2">Preparing your questions</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-background">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+        >
+          <Card p="xl" className="max-w-md w-full text-center bg-surface border-danger/20">
+            <div className="w-20 h-20 bg-danger/10 text-danger rounded-2xl flex items-center justify-center mx-auto mb-8">
+              <AlertCircle size={40} />
+            </div>
+            <h2 className="text-2xl font-display font-extrabold text-text mb-4">Assessment Unavailable</h2>
+            <p className="text-text-muted font-sans mb-10">
+              {error}
+            </p>
+            <Button 
+              onClick={() => navigate('/student/dashboard')}
+              variant="primary"
+              className="w-full"
+            >
+              Return to Dashboard
+            </Button>
+          </Card>
+        </motion.div>
       </div>
     );
   }
@@ -469,27 +527,27 @@ export default function TestAttemptPage() {
                         key={idx}
                         onClick={() => handleAnswer(q.id, option)}
                         className={`w-full p-4 sm:p-6 rounded-xl border text-left font-sans font-medium transition-all flex items-center gap-3 sm:gap-4 group ${
-                          answers[currentQuestion] === option 
+                          answers[q.id] === option 
                             ? 'border-brand/50 bg-brand/10 text-brand shadow-sm' 
                             : 'border-border bg-background text-text-muted hover:border-text-muted hover:bg-surface'
                         }`}
                       >
                         <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md border flex items-center justify-center font-display text-xs sm:text-sm font-bold transition-colors ${
-                          answers[currentQuestion] === option ? 'border-brand bg-brand text-background' : 'border-border bg-surface text-text-muted'
+                          answers[q.id] === option ? 'border-brand bg-brand text-background' : 'border-border bg-surface text-text-muted'
                         }`}>
                           {String.fromCharCode(65 + idx)}
                         </div>
                         <span className="flex-1 text-sm sm:text-base">{option.replace(/^[A-Z]\)\s*/i, '')}</span>
-                        {answers[currentQuestion] === option && <CheckCircle2 size={18} className="text-brand sm:size-5" />}
+                        {answers[q.id] === option && <CheckCircle2 size={18} className="text-brand sm:size-5" />}
                       </button>
                     ))
                   ) : (
                     <textarea 
-                      value={answers[currentQuestion] || ''}
+                      value={answers[q.id] || ''}
                       onBlur={(e) => handleAnswer(q.id, e.target.value)}
                       onChange={(e) => {
                         const val = e.target.value;
-                        setAnswers(prev => ({ ...prev, [currentQuestion]: val }));
+                        setAnswers(prev => ({ ...prev, [q.id]: val }));
                       }}
                       placeholder="Type your answer here..."
                       className="w-full px-6 py-6 rounded-xl border border-border bg-background text-text focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all resize-none font-sans min-h-[200px]"
@@ -545,7 +603,7 @@ export default function TestAttemptPage() {
             className={`w-10 h-10 rounded-md font-display font-bold text-xs transition-all flex items-center justify-center shrink-0 border ${
               currentQuestion === i 
                 ? 'bg-brand text-background border-brand shadow-soft' 
-                : answers[i] 
+                : answers[questions[i]?.id] 
                   ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30' 
                   : 'bg-background text-text-muted border-border hover:border-text-muted'
             }`}

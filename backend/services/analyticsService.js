@@ -16,7 +16,7 @@ class AnalyticsService {
             student_id
           `)
           .eq('test_id', assessmentId)
-          .in('status', ['completed', 'forced_end']), // Only analyze completed attempts
+          .in('status', ['submitted', 'forced_end']), // Only analyze completed attempts
         supabaseAdmin
           .from('questions')
           .select('id, question, answer')

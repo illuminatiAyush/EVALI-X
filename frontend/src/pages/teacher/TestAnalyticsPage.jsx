@@ -60,16 +60,18 @@ export default function TestAnalyticsPage() {
     return <FullPageLoader title="Loading analytics..." subtitle="Processing secure telemetry details" />;
   }
 
+  const getPercentage = (res) => Math.round(((res.marks || 0) / (test?.total_questions || 1)) * 100);
+
   const avgScore = results.length > 0 
-    ? Math.round(results.reduce((acc, curr) => acc + (curr.ai_feedback?.percentage || 0), 0) / results.length) 
+    ? Math.round(results.reduce((acc, curr) => acc + getPercentage(curr), 0) / results.length) 
     : 0;
 
   const highestScore = results.length > 0
-    ? Math.max(...results.map(r => r.ai_feedback?.percentage || 0))
+    ? Math.max(...results.map(r => getPercentage(r)))
     : 0;
 
   const passRate = results.length > 0
-    ? Math.round((results.filter(r => (r.ai_feedback?.percentage || 0) >= 50).length / results.length) * 100)
+    ? Math.round((results.filter(r => getPercentage(r) >= 50).length / results.length) * 100)
     : 0;
 
   return (
@@ -155,23 +157,26 @@ export default function TestAnalyticsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {results.length > 0 ? results.map((res, i) => (
+              {results.length > 0 ? results.map((res, i) => {
+                const percent = getPercentage(res);
+                const violations = res.attempt?.answers?._violations || 0;
+                return (
                 <tr key={i} className="hover:bg-surface transition-colors group">
                   <td className="px-8 py-5">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-md bg-brand/10 border border-brand/20 flex items-center justify-center text-brand font-bold text-xs uppercase">
-                        {res.profiles?.name?.[0] || res.profiles?.email?.[0] || 'N'}
+                        {res.student?.name?.[0] || res.student?.email?.[0] || 'N'}
                       </div>
                       <div>
-                        <p className="font-display font-bold text-text">{res.profiles?.name || res.profiles?.email?.split('@')[0] || 'Unknown'}</p>
-                        <p className="text-xs text-text-muted">{res.profiles?.email}</p>
+                        <p className="font-display font-bold text-text">{res.student?.name || res.student?.email?.split('@')[0] || 'Unknown'}</p>
+                        <p className="text-xs text-text-muted">{res.student?.email}</p>
                       </div>
                     </div>
                   </td>
                   <td className="px-8 py-5">
                     <div className="flex items-center gap-2">
-                      <span className={`text-lg font-display font-bold ${(res.ai_feedback?.percentage || 0) >= 80 ? 'text-emerald-500' : (res.ai_feedback?.percentage || 0) >= 50 ? 'text-brand' : 'text-danger'}`}>
-                        {res.ai_feedback?.percentage || 0}%
+                      <span className={`text-lg font-display font-bold ${percent >= 80 ? 'text-emerald-500' : percent >= 50 ? 'text-brand' : 'text-danger'}`}>
+                        {percent}%
                       </span>
                       <span className="text-xs font-semibold text-text-muted">({res.marks || 0}/{test.total_questions || 0})</span>
                     </div>
@@ -179,16 +184,16 @@ export default function TestAnalyticsPage() {
                   <td className="px-8 py-5">
                     <div className="w-32 h-1.5 bg-background border border-border rounded-full overflow-hidden relative">
                       <div 
-                        className={`absolute top-0 left-0 h-full rounded-full ${(res.ai_feedback?.percentage || 0) >= 80 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-brand shadow-soft'}`}
-                        style={{ width: `${res.ai_feedback?.percentage || 0}%` }}
+                        className={`absolute top-0 left-0 h-full rounded-full ${percent >= 80 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-brand shadow-soft'}`}
+                        style={{ width: `${percent}%` }}
                       />
                     </div>
                   </td>
                   <td className="px-8 py-5">
-                    {res.violation_count > 0 ? (
+                    {violations > 0 ? (
                       <div className="flex items-center gap-1.5 text-danger font-semibold text-xs bg-danger/10 px-2 py-1 rounded-sm border border-danger/20 w-fit">
                         <AlertTriangle size={14} />
-                        {res.violation_count} FLAGS
+                        {violations} FLAGS
                       </div>
                     ) : (
                       <span className="text-text-muted text-xs font-semibold uppercase tracking-wider">Clear</span>
@@ -201,7 +206,8 @@ export default function TestAnalyticsPage() {
                     </Button>
                   </td>
                 </tr>
-              )) : (
+              );
+              }) : (
                 <tr>
                   <td colSpan="5" className="px-8 py-20 text-center">
                     <div className="w-16 h-16 bg-surface border border-border rounded-full flex items-center justify-center mx-auto mb-4 text-text-muted">

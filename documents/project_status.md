@@ -1,7 +1,7 @@
 # 🛡️ Evalix AI – Comprehensive Project Status & Technical Dossier
 **Ecosystem**: Full-Stack AI Assessment Platform  
 **Architecture**: Asynchronous Job-Driven Distributed System  
-**Current State**: Phase 3 (Production Readiness & Resilience)
+**Current State**: Phase 4 (Enterprise Caching & Legacy Resilience)
 
 ---
 
@@ -35,7 +35,19 @@ Evalix was conceived as a high-performance tool for educators to bypass the manu
 - **Session Persistence**: Implemented `localStorage` state syncing in the test attempt page to prevent data loss on browser crashes.
 - **Real-Time Telemetry**: Launched the **System Analytics** dashboard to visualize AI consumption and engine health.
 
----
+#### Phase 4: Enterprise Caching & Legacy Resilience (Current)
+- **Hybrid Caching Engine**: 
+    - Implemented `@fastify/redis` backend caching with 1-hour TTL for heavy read operations (e.g. `getTestById`) to protect Supabase from synchronized classroom DDoS scenarios.
+    - Implemented `@tanstack/react-query` frontend caching. Migrated off native `useEffect` to use global QueryClients, ensuring zero UI-blocking during background syncs.
+- **Legacy Data Bulletproofing**: 
+    - Patched older tests lacking strict `end_time` timestamps by introducing a fallback expiration heuristic (`start_time + duration + 1hr buffer`), auto-cleaning stagnant dashboards.
+- **Teacher Dashboard Overhaul**: Authorized manual "Terminate" functionality for already-active tests, fixing state-lock bugs.
+
+#### Phase 5: Production Security & API Hardening (Current)
+- **API Read Leak Patched**: Orchestrated strict server-side IST validations on `/start-attempt`. The backend instantly rejects early access requests (403) and entirely strips the questions payload, fully neutralizing Postman scraping vulnerabilities.
+- **Server Stability (Crash Fixes)**: Identified and resolved an unhandled Promise Rejection memory leak inside the backend `withTimeout` wrapper that previously caused `ERR_CONNECTION_REFUSED` crashes exactly 15 seconds post-termination.
+- **Dynamic Real-Time UI**: Implemented `setInterval` heartbeats on both `StudentDashboard` and `TeacherDashboard` allowing test buttons and badges (Active -> Ended) to seamlessly unlock and transform in real-time without page refreshes.
+- **Advanced Analytics Data Mapping**: Re-wired the `TestAnalyticsPage` SQL joins to properly associate `attempts` JSON payloads with the results, enabling real-time display of calculated percentages and anti-cheat `_violations` for teachers.
 
 ## 📂 2. Detailed File Structure & Module Responsibilities
 
@@ -102,9 +114,8 @@ Evalix was conceived as a high-performance tool for educators to bypass the manu
 
 ## 🚀 5. The Horizon (Next Steps)
 1.  **OCR Module**: Integrating Tesseract to handle non-text PDFs.
-2.  **Redis Migration**: Moving from memory mock to production Redis for persistence.
-3.  **Advanced Proctoring**: Adding "Tab Switch" prevention and focus-tracking.
-4.  **Institutional Export**: PDF/CSV export for finalized assessment results.
+2.  **Advanced Proctoring**: Adding "Tab Switch" prevention and focus-tracking.
+3.  **Institutional Export**: PDF/CSV export for finalized assessment results.
 
 ---
 *Evalix AI – Engineered for Academic Excellence.*

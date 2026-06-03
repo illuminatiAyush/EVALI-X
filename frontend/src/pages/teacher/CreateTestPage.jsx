@@ -116,19 +116,40 @@ export default function CreateTestPage() {
     setError('');
 
     try {
+      // Ensure numQuestions is a number, not a string from the range slider
+      const numQ = parseInt(formData.numQuestions, 10) || 10;
+
       // Direct pass to backend queue
-      const response = await apiService.generateTest(file, formData.difficulty, formData.numQuestions);
+      const response = await apiService.generateTest(file, formData.difficulty, numQ);
       const jobId = response.jobId;
       
       let finalQuestions = null;
+      const MAX_POLLS = 90; // 90 x 2s = 3 minute hard ceiling
+      let pollCount = 0;
 
-      // Poll until complete
+      // Poll until complete (with safety ceiling)
       while (!finalQuestions) {
+        pollCount++;
+        if (pollCount > MAX_POLLS) {
+          throw new Error('Generation timed out after 3 minutes. The AI server may be overloaded — please try again.');
+        }
+
         await new Promise(r => setTimeout(r, 2000)); // Poll every 2 seconds
-        const statusRes = await apiService.getGenerationStatus(jobId);
+
+        let statusRes;
+        try {
+          statusRes = await apiService.getGenerationStatus(jobId);
+        } catch (pollErr) {
+          // Network blip during polling — skip this cycle, don't crash
+          console.warn('Poll network error, retrying...', pollErr.message);
+          continue;
+        }
         
         if (statusRes.status === 'completed') {
-          finalQuestions = statusRes.data.questions;
+          finalQuestions = statusRes.data?.questions;
+          if (!finalQuestions || finalQuestions.length === 0) {
+            throw new Error('AI completed but returned zero questions. Please try a different PDF.');
+          }
         } else if (statusRes.status === 'failed') {
           throw new Error(statusRes.error || 'Background AI generation failed');
         } else {
@@ -145,7 +166,7 @@ export default function CreateTestPage() {
         difficulty: formData.difficulty,
         duration_minutes: 30,
         total_marks: questions.length,
-        batch_ids: selectedBatches.length > 0 ? selectedBatches : null, // Backend handles batch assignment internally now
+        batch_ids: selectedBatches.length > 0 ? selectedBatches : null,
         content: { questions },
         is_ai_generated: true,
         status: selectedBatches.length > 0 ? 'active' : 'draft',
@@ -169,6 +190,7 @@ export default function CreateTestPage() {
       <AnimatePresence>
         {loading && (
           <motion.div
+            key="loading-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

@@ -32,6 +32,7 @@ async function trackTokenUsage(userId, tokens, model) {
  */
 async function callAI(systemPrompt, userPrompt, options = {}) {
   const errors = [];
+  const timeoutSignal = () => AbortSignal.timeout(90000); // 90 second hard timeout
 
   // 1. Try Groq (Llama 3.3) — fast, supports json_object mode
   if (GROQ_API_KEY) {
@@ -52,6 +53,7 @@ async function callAI(systemPrompt, userPrompt, options = {}) {
           max_tokens: options.max_tokens || 4000,
           response_format: { type: 'json_object' },
         }),
+        signal: timeoutSignal(),
       });
       
       if (res.ok) {
@@ -87,6 +89,7 @@ async function callAI(systemPrompt, userPrompt, options = {}) {
             max_tokens: options.max_tokens || 4000,
             response_format: { type: 'json_object' },
           }),
+          signal: timeoutSignal(),
         });
         
         if (res8b.ok) {
@@ -124,6 +127,7 @@ async function callAI(systemPrompt, userPrompt, options = {}) {
             responseMimeType: 'application/json',
           },
         }),
+        signal: timeoutSignal(),
       });
       
       if (res.ok) {
@@ -142,7 +146,12 @@ async function callAI(systemPrompt, userPrompt, options = {}) {
     }
   }
 
-  throw new Error(`All AI providers failed. Details: ${errors.join(' | ')}`);
+  logger.error({ errors }, 'All AI providers failed');
+  const isRateLimit = errors.some(e => e.includes('429'));
+  if (isRateLimit) {
+    throw new Error('AI providers are currently rate-limited. Please wait a minute and try again.');
+  }
+  throw new Error('AI providers are temporarily unavailable or overloaded. Please try again later.');
 }
 
 /**
@@ -215,7 +224,12 @@ async function generateTestQuestions(documentText, difficulty, numQuestions, use
 
       if (!res.ok) {
         const errText = await res.text();
-        throw new Error(`Gemini Multimodal OCR failed: ${errText}`);
+        logger.error({ status: res.status, errText }, 'Raw Gemini API Error');
+        if (res.status === 429) {
+          throw new Error('Google Gemini AI rate limit exceeded. Please wait 30 seconds and try again.');
+        } else {
+          throw new Error(`Google Gemini OCR service returned an error (${res.status}). Please try a text-based PDF.`);
+        }
       }
 
       const data = await res.json();
@@ -230,8 +244,9 @@ async function generateTestQuestions(documentText, difficulty, numQuestions, use
       }
 
     } catch (err) {
-      logger.error({ err }, 'Gemini Multimodal OCR failed');
-      throw new Error(`Failed to read scanned PDF: ${err.message}`);
+      logger.error({ err: err.message }, 'Gemini Multimodal OCR failed');
+      // Pass the clean error message we threw above, or a generic fallback
+      throw new Error(err.message.includes('Google') ? err.message : 'Failed to process scanned PDF due to an AI service error.');
     }
   } else {
     const genPrompt = `

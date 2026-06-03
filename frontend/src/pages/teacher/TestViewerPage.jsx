@@ -65,19 +65,54 @@ export default function TestViewerPage() {
   };
 
   const handleSchedule = async () => {
+    // Validate inputs before sending
+    if (!scheduleData.start_time || !scheduleData.end_time) {
+      toast.error('Please set both start and end dates.');
+      return;
+    }
+
+    const startISO = localInputToISO(scheduleData.start_time);
+    const endISO = localInputToISO(scheduleData.end_time);
+
+    if (!startISO || !endISO) {
+      toast.error('Invalid date format. Please re-select the dates.');
+      return;
+    }
+
+    if (new Date(endISO) <= new Date(startISO)) {
+      toast.error('End time must be after start time.');
+      return;
+    }
+
+    const duration = parseInt(scheduleData.duration_minutes, 10);
+    if (!duration || duration < 1 || duration > 300) {
+      toast.error('Duration must be between 1 and 300 minutes.');
+      return;
+    }
+
     setScheduling(true);
     try {
+      // Use a timeout to prevent infinite hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
       await apiService.updateTest(id, {
-        duration_minutes: scheduleData.duration_minutes,
-        start_time: localInputToISO(scheduleData.start_time),
-        end_time: localInputToISO(scheduleData.end_time),
+        duration_minutes: duration,
+        start_time: startISO,
+        end_time: endISO,
         status: 'scheduled'
       });
+
+      clearTimeout(timeoutId);
       toast.success('Test deployed and scheduled successfully.');
       setIsScheduling(false);
-      loadTest();
+      navigate('/teacher/dashboard');
     } catch (err) {
-      toast.error(err.message || 'Failed to schedule deployment');
+      if (err.name === 'AbortError') {
+        toast.error('Scheduling timed out. Please check your connection and try again.');
+      } else {
+        toast.error(err.message || 'Failed to schedule deployment');
+      }
     } finally {
       setScheduling(false);
     }

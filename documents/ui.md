@@ -9,8 +9,7 @@ This document defines **non-negotiable UI rules** for Evalix AI.
 Goals:
 
 * Consistent UI across all pages
-* Minimal custom CSS
-* Fast development using Material UI
+* Fast development using Tailwind CSS (utility-first)
 * Non-generic, academic + AI aesthetic
 
 ---
@@ -28,9 +27,9 @@ Goals:
 
 Use:
 
-* Material UI (core components)
-* `sx` prop for styling
-* Theme overrides
+* Tailwind CSS (core layout and styling)
+* Framer Motion (for animations)
+* Headless/Custom UI components styled with Tailwind
 
 Avoid:
 
@@ -370,6 +369,7 @@ Every action must:
 * Stats (top row)
 * Batches (cards)
 * Tests (list/table)
+* **TanStack Query State**: Never block the UI with a full spinner if data is already cached. Use a subtle "Syncing..." badge during background `isFetching` states.
 
 ---
 

@@ -29,19 +29,96 @@ async function attemptRoutes(fastify, options) {
       const userId = request.user.id;
 
       try {
-        // 1. Fetch the test (use admin to bypass RLS for reading test metadata)
-        const { data: test, error: testError } = await supabaseAdmin
-          .from('tests')
-          .select('id, status, duration_minutes, total_questions')
-          .eq('id', testId)
-          .single();
+        // --- REDIS CACHING LOGIC (Step 1 of Hybrid Strategy) ---
+        const redis = request.server.redis;
+        const cacheKey = `test:${testId}`;
+        let test = null;
+        let questions = null;
 
-        if (testError || !test) {
-          return reply.status(404).send({ success: false, error: 'Assessment not found' });
+        if (redis) {
+          try {
+            const cachedData = await redis.get(cacheKey);
+            if (cachedData) {
+              // 1. Cache Hit
+              const parsed = JSON.parse(cachedData);
+              test = parsed.test;
+              questions = parsed.questions;
+              request.log.info({ testId }, 'Redis Cache Hit: Fetched test & questions');
+            }
+          } catch (redisErr) {
+            request.log.warn({ err: redisErr }, 'Redis get error, falling back to DB');
+          }
         }
 
-        if (test.status !== 'active') {
-          return reply.status(403).send({ success: false, error: 'This assessment is not currently active' });
+        // 2. Cache Miss: Fetch Test Metadata First
+        if (!test) {
+          const { data: dbTest, error: testError } = await supabaseAdmin
+            .from('tests')
+            .select('id, status, duration_minutes, total_questions, end_time, start_time, created_at')
+            .eq('id', testId)
+            .single();
+
+          if (testError || !dbTest) {
+            return reply.status(404).send({ success: false, error: 'Assessment not found' });
+          }
+          test = dbTest;
+        }
+
+        // --- STRICT IST TIME VALIDATION & API LEAK PREVENTION ---
+        if (test.status !== 'active' && test.status !== 'scheduled') {
+          return reply.status(403).send({ success: false, error: 'This assessment is not currently available' });
+        }
+
+        const now = new Date();
+        const nowIST = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
+        
+        if (test.start_time) {
+          const startIST = new Date(new Date(test.start_time).toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
+          if (nowIST < startIST) {
+             return reply.status(403).send({ success: false, error: 'Assessment has not started yet' });
+          }
+        }
+
+        if (test.end_time) {
+          const endIST = new Date(new Date(test.end_time).toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
+          if (nowIST > endIST) {
+            return reply.status(403).send({ success: false, error: 'This assessment has ended and is no longer accepting attempts' });
+          }
+        } else {
+          // Legacy Fallback
+          const baseTime = test.start_time ? new Date(test.start_time) : new Date(test.created_at);
+          const baseIST = new Date(baseTime.toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
+          const durationMs = (test.duration_minutes || 60) * 60000;
+          const bufferMs = 60 * 60000; // 1 hr buffer
+          if (nowIST > new Date(baseIST.getTime() + durationMs + bufferMs)) {
+            return reply.status(403).send({ success: false, error: 'This assessment has ended and is no longer accepting attempts' });
+          }
+        }
+
+        // ONLY fetch questions AFTER time validation passes (API Leak Patch)
+        if (!questions) {
+          const { data: dbQuestions, error: qError } = await supabaseAdmin
+            .from('questions')
+            .select('id, question, options, type, sort_order')
+            .eq('test_id', testId)
+            .order('sort_order');
+
+          if (qError) {
+            logger.error({ err: qError }, 'Failed to fetch questions');
+            throw qError;
+          }
+          questions = dbQuestions || [];
+
+          // Store in Redis with TTL (3600 seconds = 1 hour)
+          if (redis) {
+            try {
+              const payload = JSON.stringify({ test, questions });
+              await redis.set(cacheKey, payload, 'EX', 3600);
+              request.log.info({ testId }, 'Redis Cache Miss: Stored test & questions with TTL');
+            } catch (redisErr) {
+              request.log.warn({ err: redisErr }, 'Redis set error, skipping cache save');
+            }
+          }
         }
 
         // 2. Check for existing attempt (duplicate prevention)
@@ -59,7 +136,7 @@ async function attemptRoutes(fastify, options) {
           attempt = existingAttempt;
 
           // If already completed, block re-entry
-          if (attempt.status === 'completed' || attempt.status === 'forced_end') {
+          if (attempt.status === 'submitted' || attempt.status === 'forced_end') {
             return reply.status(403).send({
               success: false,
               error: 'You have already submitted this assessment',
@@ -75,7 +152,7 @@ async function attemptRoutes(fastify, options) {
             // Auto-submit expired attempt
             await supabaseAdmin
               .from('attempts')
-              .update({ status: 'completed', updated_at: now.toISOString() })
+              .update({ status: 'submitted', updated_at: now.toISOString() })
               .eq('id', attempt.id);
 
             return reply.status(403).send({
@@ -119,18 +196,6 @@ async function attemptRoutes(fastify, options) {
           remainingSeconds = Math.floor(durationMs / 1000);
 
           request.log.info({ attemptId: attempt.id, endsAt: endsAt.toISOString() }, 'New attempt created');
-        }
-
-        // 4. Fetch questions (WITHOUT answers — security critical)
-        const { data: questions, error: qError } = await supabaseAdmin
-          .from('questions')
-          .select('id, question, options, type, sort_order')
-          .eq('test_id', testId)
-          .order('sort_order');
-
-        if (qError) {
-          logger.error({ err: qError }, 'Failed to fetch questions');
-          throw qError;
         }
 
         return reply.send({
@@ -182,7 +247,7 @@ async function attemptRoutes(fastify, options) {
           return reply.status(404).send({ success: false, error: 'Attempt not found' });
         }
 
-        if (attempt.status === 'completed' || attempt.status === 'forced_end') {
+        if (attempt.status === 'submitted' || attempt.status === 'forced_end') {
           return reply.status(403).send({ success: false, error: 'This attempt is already submitted' });
         }
 
@@ -195,7 +260,7 @@ async function attemptRoutes(fastify, options) {
           // Mark as auto-submitted if way past deadline
           await supabaseAdmin
             .from('attempts')
-            .update({ status: 'completed', answers, updated_at: endsAt.toISOString() })
+            .update({ status: 'submitted', answers, updated_at: endsAt.toISOString() })
             .eq('id', attemptId);
 
           request.log.warn({ attemptId, userId }, 'Late submission detected — auto-marked at deadline');
@@ -221,7 +286,7 @@ async function attemptRoutes(fastify, options) {
         await supabaseAdmin
           .from('attempts')
           .update({
-            status: 'completed',
+            status: 'submitted',
             answers,
             updated_at: now.toISOString(),
           })
@@ -296,12 +361,12 @@ async function attemptRoutes(fastify, options) {
       if (remainingSeconds <= 0 && attempt.status === 'in_progress') {
         await supabaseAdmin
           .from('attempts')
-          .update({ status: 'completed', updated_at: now.toISOString() })
+          .update({ status: 'submitted', updated_at: now.toISOString() })
           .eq('id', id);
 
         return reply.send({
           success: true,
-          data: { status: 'completed', remaining_seconds: 0 },
+          data: { status: 'submitted', remaining_seconds: 0 },
         });
       }
 

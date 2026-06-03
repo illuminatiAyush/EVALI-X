@@ -409,7 +409,20 @@ Defined in `shared/types.js` using JSDoc (not runtime-enforced):
 
 ---
 
-## 15. Future Expansion Hooks (Defined in types.js)
+## 15. Phase 3/4 Resolved Issues (Recent Fixes)
+
+| Area | Issue | Resolution |
+|---|---|---|
+| **Test Submission** | Typo in `status` payload causing Postgres constraint violation | Standardized payload status to `'submitted'` to match CHECK constraints |
+| **Scoring Bug** | `submitAttempt` sent reason instead of `answers` object, causing 0 marks | Refactored frontend to pass `answers` to backend, which then correctly grades against `questions` |
+| **Scalability** | High Supabase load during mass assessment start | Implemented `@fastify/redis` caching on `start-attempt` (TTL: 1 hr) |
+| **Frontend UI Blocking** | `useEffect` loaders caused spinners on every dashboard visit | Refactored `TeacherDashboard` to use TanStack Query (`@tanstack/react-query`) with 5m `staleTime` |
+| **Legacy Data Expiration** | Old active tests lacking `end_time` stayed pending indefinitely | Implemented fallback expiration check: `start_time + duration + 1hr` |
+| **Teacher Controls** | Cannot terminate `active` tests | Added pulsing Terminate button for active tests to manually end them |
+
+---
+
+## 16. Future Expansion Hooks (Defined in types.js)
 
 | Feature | Status |
 |---|---|
@@ -419,7 +432,7 @@ Defined in `shared/types.js` using JSDoc (not runtime-enforced):
 
 ---
 
-## 16. Running the Project
+## 17. Running the Project
 
 ### Prerequisites
 - Node.js (v18+)
