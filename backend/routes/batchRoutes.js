@@ -117,4 +117,68 @@ module.exports = async function (fastify, opts) {
       return reply.code(500).send({ success: false, error: 'Failed to fetch batch assessments' });
     }
   });
+
+  /**
+   * POST /api/batches/:id/notices
+   * Creates a new notice for the batch
+   */
+  fastify.post('/batches/:id/notices', async (request, reply) => {
+    try {
+      const token = request.headers.authorization.replace('Bearer ', '');
+      const supabase = createUserClient(token);
+      const { id } = request.params;
+      const { title, content } = request.body || {};
+      const userId = request.user.id;
+
+      if (!title || !content) {
+        return reply.code(400).send({ success: false, error: 'Title and content are required' });
+      }
+
+      const { data, error } = await supabase
+        .from('batch_notices')
+        .insert({
+          batch_id: id,
+          title,
+          content,
+          created_by: userId
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return reply.send({ success: true, data });
+    } catch (error) {
+      logger.error({ err: error }, '[BATCH NOTICES] Create failed');
+      return reply.code(500).send({ success: false, error: error.message || 'Failed to create notice' });
+    }
+  });
+
+  /**
+   * GET /api/batches/:id/notices
+   * Returns notices for the batch
+   */
+  fastify.get('/batches/:id/notices', async (request, reply) => {
+    try {
+      const token = request.headers.authorization.replace('Bearer ', '');
+      const supabase = createUserClient(token);
+      const { id } = request.params;
+
+      const { data, error } = await supabase
+        .from('batch_notices')
+        .select(`
+          *,
+          teacher:profiles(name)
+        `)
+        .eq('batch_id', id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return reply.send({ success: true, data });
+    } catch (error) {
+      logger.error({ err: error }, '[BATCH NOTICES] Fetch failed');
+      return reply.code(500).send({ success: false, error: error.message || 'Failed to fetch notices' });
+    }
+  });
 };

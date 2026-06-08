@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, Link, useLocation, useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { LayoutDashboard, Users, FileText, BarChart3, Settings, ArrowLeft } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, BarChart3, Settings, ArrowLeft, Megaphone } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '../../../lib/api';
 import { FullPageLoader } from '../../../components/ui/Loader';
@@ -10,6 +10,7 @@ import BatchStudentsTab from './BatchStudentsTab';
 import BatchAssessmentsTab from './BatchAssessmentsTab';
 import BatchAnalyticsTab from './BatchAnalyticsTab';
 import BatchSettingsTab from './BatchSettingsTab';
+import BatchNoticesTab from './BatchNoticesTab';
 
 export default function BatchWorkspaceLayout() {
   const { batchId } = useParams();
@@ -33,6 +34,7 @@ export default function BatchWorkspaceLayout() {
     { name: 'Students', path: `/teacher/batches/${batchId}/students`, icon: Users },
     { name: 'Assessments', path: `/teacher/batches/${batchId}/assessments`, icon: FileText },
     { name: 'Analytics', path: `/teacher/batches/${batchId}/analytics`, icon: BarChart3 },
+    { name: 'Notices', path: `/teacher/batches/${batchId}/notices`, icon: Megaphone },
     { name: 'Settings', path: `/teacher/batches/${batchId}/settings`, icon: Settings },
   ];
 
@@ -100,6 +102,7 @@ export default function BatchWorkspaceLayout() {
           <Route path="students" element={<BatchStudentsTab batchId={batchId} />} />
           <Route path="assessments" element={<BatchAssessmentsTab batchId={batchId} />} />
           <Route path="analytics" element={<BatchAnalyticsTab batchId={batchId} />} />
+          <Route path="notices" element={<BatchNoticesTab batchId={batchId} />} />
           <Route path="settings" element={<BatchSettingsTab batchId={batchId} />} />
         </Routes>
       </div>

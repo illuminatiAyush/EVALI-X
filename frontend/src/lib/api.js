@@ -697,6 +697,38 @@ const _apiService = {
     return json.data;
   },
 
+  async getBatchNotices(batchId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Unauthorized');
+
+    const res = await fetch(`${BACKEND_URL}/batches/${batchId}/notices`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (!res.ok) throw new Error('Failed to fetch batch notices');
+    const json = await res.json();
+    return json.data;
+  },
+
+  async createBatchNotice(batchId, { title, content }) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Unauthorized');
+
+    const res = await fetch(`${BACKEND_URL}/batches/${batchId}/notices`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ title, content }),
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to create notice');
+    }
+    const json = await res.json();
+    return json.data;
+  },
+
   /**
    * ─── NOTIFICATIONS ────────────────────────────────────────────────────────
    */

@@ -30,6 +30,8 @@ export default function StudentDashboard() {
 
   const [batches, setBatches] = useState([]);
   const [selectedBatchId, setSelectedBatchId] = useState(null);
+  const [notices, setNotices] = useState([]);
+  const [noticesLoading, setNoticesLoading] = useState(false);
 
   // Real-time interval for dynamic dashboard unlocks
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -37,6 +39,47 @@ export default function StudentDashboard() {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Fetch notices when batch selection changes
+  useEffect(() => {
+    if (!selectedBatchId) {
+      setNotices([]);
+      return;
+    }
+    
+    let active = true;
+    const loadNotices = async () => {
+      setNoticesLoading(true);
+      try {
+        const data = await apiService.getBatchNotices(selectedBatchId);
+        if (active) setNotices(data || []);
+      } catch (err) {
+        console.error('Failed to load batch notices:', err);
+      } finally {
+        if (active) setNoticesLoading(false);
+      }
+    };
+    
+    loadNotices();
+
+    // Real-time subscription for notices in this batch
+    const channelName = `batch-notices-${selectedBatchId}-${Math.random().toString(36).substring(7)}`;
+    const channel = supabase.channel(channelName)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'batch_notices',
+        filter: `batch_id=eq.${selectedBatchId}`
+      }, (payload) => {
+        loadNotices();
+      })
+      .subscribe();
+    
+    return () => { 
+      active = false;
+      supabase.removeChannel(channel);
+    };
+  }, [selectedBatchId]);
 
   useEffect(() => {
     let mounted = true;
@@ -226,6 +269,61 @@ export default function StudentDashboard() {
               </Card>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Class Notices Section */}
+      {selectedBatchId && (
+        <div className="space-y-6 mb-10 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-display font-bold flex items-center gap-3">
+              <div className="w-2 h-6 bg-brand rounded-sm"></div>
+              Class Notices
+            </h2>
+            {notices.length > 0 && (
+              <span className="text-xs font-semibold bg-brand/10 text-brand px-3 py-1 rounded-sm uppercase tracking-wider">
+                Count: {notices.length}
+              </span>
+            )}
+          </div>
+          {noticesLoading ? (
+            <div className="space-y-4">
+              {[1].map((i) => (
+                <Card key={i} p="md" className="animate-pulse h-24">
+                  <div className="h-4 bg-border rounded w-1/4 mb-3"></div>
+                  <div className="h-3 bg-background rounded w-full"></div>
+                </Card>
+              ))}
+            </div>
+          ) : notices.length === 0 ? (
+            <Card p="lg" className="bg-surface border border-border text-center text-text-muted py-8">
+              No announcements have been posted for this section yet.
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
+              {notices.map((notice) => (
+                <Card 
+                  key={notice.id} 
+                  p="lg" 
+                  className="bg-surface border border-border flex flex-col justify-between hover:border-brand/35 transition-all hover:shadow-soft"
+                >
+                  <div>
+                    <h3 className="font-display font-bold text-base text-text mb-2 break-words flex items-start gap-2">
+                      <span className="w-2 h-2 bg-brand rounded-full mt-2 flex-shrink-0" />
+                      {notice.title}
+                    </h3>
+                    <p className="text-sm text-text-muted mb-4 font-sans whitespace-pre-wrap leading-relaxed pr-2">
+                      {notice.content}
+                    </p>
+                  </div>
+                  <div className="flex justify-between items-center text-[10px] text-text-muted/70 border-t border-border/40 pt-3 mt-auto">
+                    <span className="font-semibold">By {notice.teacher?.name || 'Instructor'}</span>
+                    <span>{formatIST(notice.created_at)}</span>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
