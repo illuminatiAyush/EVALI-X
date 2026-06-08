@@ -83,35 +83,7 @@ export default function StudentDashboard() {
 
         if (mounted) {
           debug.db.info(`Fetch Success — Found ${allTests.length} total tests, ${Object.keys(resultsMap).length} attempts`);
-          const now = new Date();
-          const available = (allTests || []).filter(test => {
-            // 1. If test is already completed by student, hide from pending
-            if (resultsMap[test.id]) return false;
-            
-            // 2. Must be scheduled or active
-            if (test.status !== 'scheduled' && test.status !== 'active') return false;
-            
-            // 3. Expiration Logic
-            if (test.end_time) {
-              if (new Date(test.end_time) < now) return false;
-            } else {
-              // Legacy fallback: if no end_time, use start_time/created_at + duration + 1hr buffer
-              const baseTime = test.start_time ? new Date(test.start_time) : new Date(test.created_at);
-              const durationMs = (test.duration_minutes || 60) * 60000;
-              const bufferMs = 60 * 60000; // 1 hour buffer
-              const expiryTime = new Date(baseTime.getTime() + durationMs + bufferMs);
-              
-              if (now > expiryTime) return false; // Expired!
-            }
-            
-            return true;
-          }).map(test => {
-            // A test is strictly "upcoming" (not yet available to start) if it is scheduled
-            // or if start_time is in the future.
-            const isUpcoming = test.status === 'scheduled' || (test.start_time && new Date(test.start_time) > now);
-            return { ...test, _upcoming: isUpcoming };
-          });
-          
+          const available = (allTests || []).filter(test => test.status !== 'draft');
           setTests(available);
         }
       } catch (err) {
@@ -124,40 +96,24 @@ export default function StudentDashboard() {
     loadDashboardData();
 
     // Set up realtime listener for test changes (start, end, restart, new assignments)
-    console.log('[REALTIME STATUS] Connecting to student-dashboard-tests channel...');
-    debug.realtime.info('Subscription Connected: student-dashboard-tests');
-    const channel = supabase.channel('student-dashboard-tests')
+    console.log('[REALTIME STATUS] Connecting to assessment-events channel...');
+    debug.realtime.info('Subscription Connected: assessment-events');
+    const channelName = `student-dashboard-tests-${Math.random().toString(36).substring(7)}`;
+    const channel = supabase.channel(channelName)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tests' }, (payload) => {
+        debug.realtime.info('Test Updated', payload);
+        const newStatus = payload.new?.status;
+        if (newStatus === 'active') {
+          toast.success('🟢 An assessment is now LIVE! You can start it.', { duration: 6000 });
+        } else if (newStatus === 'ended') {
+          toast.info('An assessment has ended.');
+        }
+        if (mounted) loadDashboardData();
+      })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'test_batches' }, (payload) => {
         debug.realtime.info('Test Batch Assigned', payload);
         toast.info('A new test was just assigned to your batch!');
         if (mounted) loadDashboardData();
-      })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tests' }, (payload) => {
-        debug.realtime.info('New Global Test Inserted', payload);
-        if (mounted) loadDashboardData();
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tests' }, (payload) => {
-        // Teacher started, ended, or restarted a test — refresh immediately
-        if (!mounted) return;
-        debug.realtime.info('Test Updated', payload);
-        console.log('[REALTIME PAYLOAD]', payload);
-        console.log('[TEST STATE BEFORE]', payload.old);
-        console.log('[TEST STATE AFTER]', payload.new);
-        
-        const newStatus = payload.new?.status;
-        if (newStatus === 'active') {
-          debug.student.info('Active Test Received', payload.new?.id);
-          toast.success('🟢 An assessment is now LIVE! You can start it.', { duration: 6000 });
-        } else if (newStatus === 'ended') {
-          debug.student.info('Terminated Test Received', payload.new?.id);
-        }
-        
-        loadDashboardData();
-      })
-      .on('system', { event: '*' }, (payload) => {
-        if (payload.extension === 'postgres_changes' && payload.type === 'CHANNEL_ERROR') {
-           console.error('[REALTIME CHANNEL_ERROR]', payload);
-        }
       })
       .subscribe((status, err) => {
         console.log('[REALTIME CHANNEL] student-dashboard-tests');
@@ -302,7 +258,7 @@ export default function StudentDashboard() {
             ))
           ) : (selectedBatchId ? tests.filter(t => t.batch_ids && t.batch_ids.includes(selectedBatchId)) : tests).length > 0 ? (
             (selectedBatchId ? tests.filter(t => t.batch_ids && t.batch_ids.includes(selectedBatchId)) : tests).map((test) => {
-              const isUpcoming = test.start_time ? (new Date(test.start_time) > currentTime) : (test.status === 'scheduled');
+              const isUpcoming = test.status === 'scheduled' || (test.start_time && new Date(test.start_time) > currentTime);
               return (
               <motion.div variants={itemVariants} key={test.id}>
                 <Card p="lg" interactive className="flex flex-col h-full border-l-4 border-l-transparent hover:border-l-brand">
@@ -329,40 +285,39 @@ export default function StudentDashboard() {
                         <span className="flex items-center gap-1 text-xs font-semibold text-emerald-500 uppercase">
                           <CheckCircle2 size={16} /> Completed
                         </span>
-                      ) : isUpcoming ? (
+                      ) : test.status === 'scheduled' ? (
                         <span className="flex items-center gap-1 text-xs font-semibold text-amber-500 uppercase">
-                          <Clock size={16} /> Starts {formatIST(test.start_time)}
+                          <Clock size={16} /> Upcoming
+                        </span>
+                      ) : test.status === 'ended' ? (
+                        <span className="flex items-center gap-1 text-xs font-semibold text-text-muted uppercase">
+                          <Clock size={16} /> Ended
                         </span>
                       ) : (
                         <span className="flex items-center gap-1 text-xs font-semibold text-brand uppercase">
-                          <ArrowRight size={16} /> Not Started
+                          <ArrowRight size={16} /> Active
                         </span>
                       )}
                     </div>
                     
                     {attemptMap[test.id] ? (
-                      <Button 
-                        to={`/student/results/${test.id}`}
-                        variant="outline"
-                      >
-                        View Results
+                      <div className="flex gap-2">
+                        <Button variant="outline" disabled className="opacity-50 cursor-not-allowed">Assessment already completed</Button>
+                        <Button to={`/student/results/${test.id}`} variant="primary">View Results</Button>
+                      </div>
+                    ) : test.status === 'scheduled' ? (
+                      <Button variant="outline" disabled className="opacity-50 cursor-not-allowed">
+                        Assessment not yet started
                       </Button>
-                    ) : isUpcoming ? (
-                      <Button 
-                        variant="outline"
-                        disabled
-                        className="opacity-50 cursor-not-allowed"
-                      >
-                        Not Yet Available
+                    ) : test.status === 'ended' ? (
+                      <Button variant="outline" disabled className="opacity-50 cursor-not-allowed">
+                        Assessment ended
                       </Button>
-                    ) : (
-                      <Button 
-                        to={`/student/test/${test.id}`}
-                        variant="primary"
-                      >
-                        Commence Evaluation
+                    ) : test.status === 'active' ? (
+                      <Button to={`/student/test/${test.id}`} variant="primary">
+                        Start Assessment
                       </Button>
-                    )}
+                    ) : null}
                   </div>
                 </Card>
               </motion.div>

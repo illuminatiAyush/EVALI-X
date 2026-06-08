@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 import { Users, Plus, Copy, CheckCircle2, CopyCheck, CalendarClock, ChevronDown } from 'lucide-react';
 import { apiService } from '../../lib/api';
 import Button from '../../components/ui/Button';
@@ -10,6 +11,7 @@ import { formatISTDate } from '../../lib/timezone';
 
 export default function BatchManagementPage() {
   const [batches, setBatches] = useState([]);
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -180,7 +182,12 @@ export default function BatchManagementPage() {
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.95 }}
                     >
-                      <Card p="md" interactive className="h-full flex flex-col justify-between border-l-4 border-l-transparent hover:border-l-zinc-900">
+                      <Card 
+                        p="md" 
+                        interactive 
+                        onClick={() => navigate(`/teacher/batches/${batch.id}`)}
+                        className="h-full flex flex-col justify-between border-l-4 border-l-transparent hover:border-l-brand cursor-pointer"
+                      >
                         <div className="mb-4">
                           <div className="flex justify-between items-start mb-2">
                             <h3 className="font-display font-bold text-lg text-text break-words pr-2">{batch.name}</h3>
@@ -212,7 +219,10 @@ export default function BatchManagementPage() {
                             </span>
                           </div>
                           <button
-                            onClick={() => copyToClipboard(batch.join_code, batch.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              copyToClipboard(batch.join_code, batch.id);
+                            }}
                             className="p-2 text-text-muted hover:text-brand hover:bg-brand/10 rounded-md transition-colors border border-transparent hover:border-brand/20"
                             title="Copy code"
                             disabled={batch.expires_at && new Date(batch.expires_at) < new Date()}

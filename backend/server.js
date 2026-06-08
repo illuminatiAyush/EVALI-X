@@ -98,6 +98,8 @@ async function start() {
   app.register(require('./routes/attemptRoutes'), { prefix: '/api' });
   app.register(require('./routes/assessmentRoutes'), { prefix: '/api' });
   app.register(require('./routes/reportRoutes'), { prefix: '/api' });
+  app.register(require('./routes/batchRoutes'), { prefix: '/api' });
+  app.register(require('./routes/notificationRoutes'), { prefix: '/api' });
 
   // ─── Health Check ────────────────────────────────────────────────
   app.get('/health', async () => ({

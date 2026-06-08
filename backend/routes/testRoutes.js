@@ -157,6 +157,28 @@ async function testRoutes(fastify, options) {
       }
     },
   });
+  /**
+   * GET /api/restart-info/:id
+   * Returns submission/evaluation counts for the restart confirmation modal.
+   */
+  fastify.get('/restart-info/:id', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const token = request.headers.authorization.replace('Bearer ', '');
+      const userId = request.user.id;
+
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(id)) {
+        return reply.status(400).send({ success: false, error: 'Invalid test ID format' });
+      }
+
+      const info = await TestService.getRestartInfo(token, userId, id);
+      return reply.send({ success: true, data: info });
+    } catch (error) {
+      request.log.error({ err: error }, 'Failed to get restart info');
+      return reply.status(500).send({ success: false, error: error.message || 'Failed to get restart info' });
+    }
+  });
 }
 
 module.exports = testRoutes;

@@ -16,6 +16,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { supabase, auth } from '../lib/supabase';
 import { debug } from '../lib/debug';
+import { debugLifecycle } from '../lib/debugLifecycle';
 
 const AuthContext = createContext({});
 
@@ -23,6 +24,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState(null);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // STRICT MODE GUARD: This ref ensures initialization runs EXACTLY
@@ -71,24 +73,39 @@ export const AuthProvider = ({ children }) => {
 
     const bootstrap = async () => {
       debug.auth.info('Auth bootstrap starting (guarded)...');
+      debugLifecycle.log('Auth bootstrap starting');
 
-      // ━━━ PHASE 1: Hydrate from existing session ━━━
-      // This resolves the "reload loses state" problem. On page load,
-      // Supabase checks localStorage for a persisted JWT and returns it.
+      // ━━━ PHASE 1: Hydrate from existing session with 10s Timeout ━━━
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const fetchSession = supabase.auth.getSession();
+        const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('AUTH_TIMEOUT')), 10000));
+        
+        const { data: { session }, error } = await Promise.race([fetchSession, timeout]);
 
-        if (!error && session?.user && mounted.current) {
+        if (error) throw error;
+
+        if (session?.user && mounted.current) {
           setUser(session.user);
           await resolveRole(session.user, mounted);
+          debugLifecycle.authResolved(session.user.user_metadata?.role || 'student');
+        } else {
+          debugLifecycle.log('Auth resolved with no session');
         }
       } catch (err) {
-        debug.auth.warn('Session hydration failed', { error: err.message });
-      }
-
-      // ━━━ ALWAYS clear loading after session check ━━━
-      if (mounted.current) {
-        setLoading(false);
+        if (err.message === 'AUTH_TIMEOUT') {
+          console.error('[AUTH TIMEOUT] Supabase getSession took longer than 10s.');
+          debugLifecycle.authFailed('Timeout');
+          if (mounted.current) setAuthError('Authentication service timed out. Please refresh.');
+        } else {
+          debug.auth.warn('Session hydration failed', { error: err.message });
+          debugLifecycle.authFailed(err.message);
+          if (mounted.current) setAuthError('Failed to verify authentication.');
+        }
+      } finally {
+        // ━━━ ALWAYS clear loading after session check ━━━
+        if (mounted.current) {
+          setLoading(false);
+        }
       }
 
       // ━━━ PHASE 2: Subscribe to future auth events ━━━
@@ -235,9 +252,19 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     debug.auth.info('Logging out...');
+    
+    // Optimistic UI update — instantly hide secure views
+    setUser(null);
+    setRole(null);
+
     try {
-      await auth.signOut();
-      debug.auth.info('Logout successful');
+      // Give Supabase a max of 1.5 seconds to clean up server-side sessions
+      // and realtime subscriptions before we nuke the browser data
+      await Promise.race([
+        auth.signOut(),
+        new Promise((resolve) => setTimeout(resolve, 1500))
+      ]);
+      debug.auth.info('Server-side logout completed or timed out');
     } catch (err) {
       debug.auth.warn('Logout error (non-critical)', { error: err.message });
     }
@@ -278,7 +305,7 @@ export const AuthProvider = ({ children }) => {
   // ALWAYS renders children. Never conditionally hides them.
   // Loading state is consumed by ProtectedRoute downstream.
   return (
-    <AuthContext.Provider value={{ user, role, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, role, loading, authError, login, signup, logout }}>
       {children}
     </AuthContext.Provider>
   );

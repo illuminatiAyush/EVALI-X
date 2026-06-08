@@ -7,7 +7,6 @@ import {
   LayoutDashboard, 
   PlusCircle, 
   BookOpen, 
-  Bell,
   GraduationCap,
   ChevronRight,
   Users,
@@ -17,6 +16,7 @@ import {
   User
 } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
+import NotificationMenu from '../components/NotificationMenu';
 
 export default function MainLayout() {
   const { role, logout, user } = useAuth();
@@ -124,9 +124,7 @@ export default function MainLayout() {
         
         <div className="flex items-center gap-1.5">
           <ThemeToggle />
-          <button className="p-2 text-text-muted hover:text-text rounded-lg">
-            <Bell size={18} />
-          </button>
+          <NotificationMenu />
           <button 
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="p-2 text-text bg-surface-muted border border-border rounded-lg transition-colors duration-200"
@@ -184,10 +182,7 @@ export default function MainLayout() {
             
             <ThemeToggle />
             
-            <button className="p-2 text-text-muted hover:text-text hover:bg-surface-muted rounded-xl relative transition-all">
-              <Bell size={18} />
-              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-orange-400 rounded-full" />
-            </button>
+            <NotificationMenu />
             <Link to={`/${role}/profile`} className="p-2 text-text-muted hover:text-text hover:bg-surface-muted rounded-xl transition-all">
               <User size={18} />
             </Link>

@@ -12,7 +12,9 @@ import { debug } from './debug';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api';
 
-export const apiService = {
+import { withTimeout } from './withTimeout';
+
+const _apiService = {
   /**
    * Generates a new test using AI.
    * Sends the PDF file directly to the backend for processing.
@@ -245,45 +247,27 @@ export const apiService = {
 
   /**
    * Records a violation (e.g., tab switch).
-   * Still uses Supabase directly — lightweight RLS-protected operation.
+   * Now calls the backend endpoint to persist severity and timestamp.
    */
-  async recordViolation(attemptId) {
+  async recordViolation(attemptId, violationType) {
     const { data: { session } } = await supabase.auth.getSession();
-    const user = session?.user;
+    if (!session) throw new Error('Unauthorized');
 
-    const { data: attempt, error: attemptError } = await supabase
-      .from('attempts')
-      .select('answers')
-      .eq('id', attemptId)
-      .eq('student_id', user.id)
-      .single();
+    const response = await fetch(`${BACKEND_URL}/record-violation`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ attemptId, violationType }),
+    });
 
-    if (attemptError || !attempt) throw new Error('Attempt not found');
-
-    const violations = (attempt.answers?._violations || 0) + 1;
-    const updatedAnswers = { ...attempt.answers, _violations: violations };
-
-    // Auto-submit on 3+ violations
-    if (violations >= 3) {
-      const { data: updated } = await supabase
-        .from('attempts')
-        .update({ answers: updatedAnswers, status: 'submitted', updated_at: new Date().toISOString() })
-        .eq('id', attemptId)
-        .select()
-        .single();
-
-      return { ...updated, auto_submitted: true, violation_count: violations };
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'Failed to record violation');
     }
 
-    const { data: updated, error: updateError } = await supabase
-      .from('attempts')
-      .update({ answers: updatedAnswers })
-      .eq('id', attemptId)
-      .select()
-      .single();
-
-    if (updateError) throw new Error('Failed to record violation');
-    return { ...updated, auto_submitted: false, violation_count: violations };
+    return result;
   },
 
   /**
@@ -387,6 +371,22 @@ export const apiService = {
 
     if (error) throw new Error(error.message || 'Failed to fetch results');
     return data;
+  },
+
+  /**
+   * Gets enriched analytics data from the backend.
+   */
+  async getTestAnalytics(id) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Unauthorized');
+
+    const response = await fetch(`${BACKEND_URL}/reports/assessment/${id}/analytics`, {
+      headers: { 'Authorization': `Bearer ${session.access_token}` }
+    });
+    
+    const result = await response.json();
+    if (!response.ok || !result.success) throw new Error(result.error || 'Failed to fetch analytics');
+    return result.data;
   },
 
   /**
@@ -547,28 +547,24 @@ export const apiService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Unauthorized');
 
-    // Find the batch by code
-    const { data: batch, error: searchError } = await supabase
-      .from('batches')
-      .select('id, expires_at')
-      .eq('join_code', joinCode.toUpperCase())
-      .single();
+    console.log('[JOIN] Executing RPC for join_code:', joinCode);
 
-    if (searchError || !batch) throw new Error('Invalid join code or class not found');
-    if (batch.expires_at && new Date(batch.expires_at) < new Date()) throw new Error('This join code has expired');
+    // Call the secure RPC function to bypass RLS and perform the join atomically
+    const { data, error } = await supabase.rpc('join_batch_by_code', {
+      p_join_code: joinCode
+    });
 
-    // Add student to batch
-    const { error: joinError } = await supabase
-      .from('student_batches')
-      .insert({
-        student_id: user.id,
-        batch_id: batch.id
-      });
+    console.log('[JOIN] RPC Result:', data);
+    console.log('[JOIN] RPC Error:', error);
 
-    if (joinError) {
-      if (joinError.code === '23505') throw new Error('You are already in this class');
-      throw new Error(joinError.message || 'Failed to join class');
+    // Handle network/RPC level errors
+    if (error) throw new Error(error.message || 'Failed to connect to server');
+
+    // Handle logical errors returned by the RPC function
+    if (data && !data.success) {
+      throw new Error(data.error || 'Failed to join class');
     }
+
     return { success: true };
   },
 
@@ -610,6 +606,130 @@ export const apiService = {
     return { success: true };
   },
 
+  /**
+   * ─── TEACHER COMMAND CENTER & BATCH WORKSPACE ──────────────────────────────
+   */
+
+  async getTeacherDashboardStats() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Unauthorized');
+
+    const res = await fetch(`${BACKEND_URL}/teacher/dashboard-stats`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (!res.ok) throw new Error('Failed to fetch dashboard stats');
+    const json = await res.json();
+    return json.data;
+  },
+
+  async getBatchOverview(batchId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Unauthorized');
+
+    const res = await fetch(`${BACKEND_URL}/batches/${batchId}/overview`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (!res.ok) throw new Error('Failed to fetch batch overview');
+    const json = await res.json();
+    return json.data;
+  },
+
+  async getBatchStudents(batchId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Unauthorized');
+
+    const res = await fetch(`${BACKEND_URL}/batches/${batchId}/students`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (!res.ok) throw new Error('Failed to fetch batch students');
+    const json = await res.json();
+    return json.data;
+  },
+
+  async getStudentDashboardStats() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Unauthorized');
+
+    const { data: attempts, error } = await supabase
+      .from('attempts')
+      .select('id, status, violation_count, results (score, max_score)')
+      .eq('student_id', user.id)
+      .in('status', ['submitted', 'evaluated', 'forced_end']);
+      
+    if (error) {
+      console.error('Failed to fetch student dashboard stats:', error);
+      return { totalAttempts: 0, avgAccuracy: 0, learningPoints: 0 };
+    }
+
+    if (!attempts || attempts.length === 0) {
+      return { totalAttempts: 0, avgAccuracy: 0, learningPoints: 0 };
+    }
+
+    let totalScore = 0;
+    let totalMaxScore = 0;
+
+    attempts.forEach(a => {
+      if (a.results && a.results.length > 0) {
+        totalScore += (a.results[0].score || 0);
+        totalMaxScore += (a.results[0].max_score || 0);
+      }
+    });
+
+    const avgAccuracy = totalMaxScore > 0 ? Math.round((totalScore / totalMaxScore) * 100) : 0;
+    const learningPoints = totalScore * 10; // simple formula
+
+    return {
+      totalAttempts: attempts.length,
+      avgAccuracy,
+      learningPoints
+    };
+  },
+
+  async getBatchAssessments(batchId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Unauthorized');
+
+    const res = await fetch(`${BACKEND_URL}/batches/${batchId}/assessments`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (!res.ok) throw new Error('Failed to fetch batch assessments');
+    const json = await res.json();
+    return json.data;
+  },
+
+  /**
+   * ─── NOTIFICATIONS ────────────────────────────────────────────────────────
+   */
+
+  async getNotifications() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Unauthorized');
+
+    const res = await fetch(`${BACKEND_URL}/notifications`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (!res.ok) throw new Error('Failed to fetch notifications');
+    const json = await res.json();
+    return json.data;
+  },
+
+  async markNotificationsRead(ids = []) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Unauthorized');
+
+    const res = await fetch(`${BACKEND_URL}/notifications/read`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ ids }),
+    });
+    if (!res.ok) throw new Error('Failed to mark notifications read');
+    const json = await res.json();
+    return json.data;
+  },
+
   // AI Usage & Analytics
   getAIUsage: async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -621,5 +741,147 @@ export const apiService = {
       }
     });
     return response.json();
+  },
+
+  // ─── Reporting & Hardening ──────────────────────────────────────────────
+
+  async getRestartInfo(testId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Unauthorized');
+
+    const response = await fetch(`${BACKEND_URL}/restart-info/${testId}`, {
+      headers: { 'Authorization': `Bearer ${session.access_token}` }
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success) throw new Error(result.error);
+    return result.data;
+  },
+
+  async downloadStudentReport(testId, studentId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Unauthorized');
+
+    const response = await fetch(`${BACKEND_URL}/reports/assessment/${testId}/pdf/student/${studentId}`, {
+      headers: { 'Authorization': `Bearer ${session.access_token}` }
+    });
+    if (!response.ok) throw new Error('Failed to download PDF');
+    
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `evalix_student_${studentId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  },
+
+  async downloadSummaryReport(testId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Unauthorized');
+
+    const response = await fetch(`${BACKEND_URL}/reports/assessment/${testId}/pdf/summary`, {
+      headers: { 'Authorization': `Bearer ${session.access_token}` }
+    });
+    if (!response.ok) throw new Error('Failed to download PDF');
+    
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `evalix_summary_${testId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  },
+
+  async downloadCSV(testId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Unauthorized');
+
+    const response = await fetch(`${BACKEND_URL}/reports/assessment/${testId}/export`, {
+      headers: { 'Authorization': `Bearer ${session.access_token}` }
+    });
+    if (!response.ok) throw new Error('Failed to download CSV');
+    
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `evalix_export_${testId}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  },
+
+  async getTestAnalytics(testId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Unauthorized');
+
+    const res = await fetch(`${BACKEND_URL}/reports/assessment/${testId}/analytics`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (!res.ok) throw new Error('Failed to fetch test analytics');
+    const json = await res.json();
+    return json.data;
+  },
+
+  async downloadSummaryReport(testId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Unauthorized');
+
+    const response = await fetch(`${BACKEND_URL}/reports/assessment/${testId}/pdf/summary`, {
+      headers: { 'Authorization': `Bearer ${session.access_token}` }
+    });
+    if (!response.ok) throw new Error('Failed to download Summary PDF');
+    
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `evalix_summary_${testId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  },
+
+  async downloadStudentReport(testId, studentId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Unauthorized');
+
+    const response = await fetch(`${BACKEND_URL}/reports/assessment/${testId}/pdf/student/${studentId}`, {
+      headers: { 'Authorization': `Bearer ${session.access_token}` }
+    });
+    if (!response.ok) throw new Error('Failed to download Student PDF');
+    
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `evalix_student_report_${studentId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
   }
 };
+
+export const apiService = Object.fromEntries(
+  Object.entries(_apiService).map(([key, fn]) => {
+    if (typeof fn === 'function') {
+      // Background AI generation requires much more time than normal requests
+      const isLongTask = ['generateTest', 'getGenerationStatus'].includes(key);
+      const timeoutMs = isLongTask ? 60000 : 15000;
+      
+      return [
+        key,
+        (...args) => withTimeout(fn(...args), timeoutMs, `API:${key}`)
+      ];
+    }
+    return [key, fn];
+  })
+);

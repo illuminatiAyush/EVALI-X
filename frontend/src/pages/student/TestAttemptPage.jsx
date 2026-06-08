@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiService } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 import { useAntiCheat } from '../../hooks/useAntiCheat';
 import { debug } from '../../utils/debugLogger';
 import { 
@@ -19,10 +20,12 @@ import {
 import { toast } from 'sonner';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
+import { debugLifecycle } from '../../lib/debugLifecycle';
 
 export default function TestAttemptPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   
   const [attempt, setAttempt] = useState(null);
   const [questions, setQuestions] = useState([]);
@@ -31,6 +34,7 @@ export default function TestAttemptPage() {
   const [answers, setAnswers] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const submittingRef = useRef(false);
   const [timeLeft, setTimeLeft] = useState(0);
   const [violationWarning, setViolationWarning] = useState(false);
   const [error, setError] = useState(null);
@@ -111,7 +115,7 @@ export default function TestAttemptPage() {
         // Server is ahead (e.g., student used a different device)
         resolvedAnswers = { ...localAnswers, ...serverAnswers };
         resolvedQuestion = 0; // Server doesn't track question index, start from 0
-        console.info(`[Sync] SERVER wins: ${serverAnswerCount} answers vs ${localAnswerCount} local answers`);
+        console.info(`[Sync] SERVER wins: ${serverAnswerCount} server vs ${localAnswerCount} local answers`);
       } else {
         // Equal count — merge both, prefer local for question position
         resolvedAnswers = { ...serverAnswers, ...localAnswers };
@@ -201,7 +205,8 @@ export default function TestAttemptPage() {
 
   // ━━━ UNIFIED SUBMISSION LOGIC ━━━
   const forceSubmit = useCallback(async (reason) => {
-    if (isSubmitting || isSubmitted || !attempt) return;
+    if (submittingRef.current || isSubmitted || !attempt) return;
+    submittingRef.current = true;
     setIsSubmitting(true);
     try {
       await apiService.submitAttempt(attempt.id, answersRef.current);
@@ -211,15 +216,84 @@ export default function TestAttemptPage() {
       navigate(`/student/results/${id}`, { replace: true });
     } catch (err) {
       console.error('Submission failed', err);
+      toast.error('Submission may have failed. Please check your dashboard.');
     } finally {
       setIsSubmitting(false);
+      submittingRef.current = false;
     }
-  }, [attempt, id, isSubmitted, isSubmitting, navigate]);
+  }, [attempt, id, isSubmitted, navigate]);
 
   // ━━━ ANTI-CHEAT INTEGRATION ━━━
-  const { strikeCount, isWarningModalOpen, dismissWarning } = useAntiCheat(3, () => {
-    forceSubmit('Auto-Submitted: Anti-Cheat Violation');
+  const { strikeCount, warningState, dismissWarning } = useAntiCheat(attempt?.id, (reason) => {
+    forceSubmit(reason || 'Auto-Submitted: Anti-Cheat Violation');
   });
+
+  // ━━━ PRESENCE BROADCAST FOR LIVE MONITOR ━━━
+  useEffect(() => {
+    if (!user || !attempt || isSubmitted) return;
+
+    const topic = `live-monitor-${id}`;
+    const existing = supabase.getChannels().find(c => c.topic === `realtime:${topic}`);
+    if (existing) supabase.removeChannel(existing);
+
+    const channel = supabase.channel(topic, {
+      config: {
+        presence: {
+          key: user.id,
+        },
+      },
+    });
+
+    channel.on('presence', { event: 'sync' }, () => {
+      // Sync event received, not much to do on client side
+    });
+
+    channel.subscribe(async (status, err) => {
+      if (status === 'SUBSCRIBED') {
+        debugLifecycle.realtimeConnected(topic);
+        const presenceData = {
+          studentId: user.id,
+          name: user.user_metadata?.name || user.email,
+          email: user.email,
+          currentQuestionIndex: currentQuestion,
+          violationCount: strikeCount,
+          lastActive: new Date().toISOString()
+        };
+        await channel.track(presenceData);
+      }
+      if (status === 'CHANNEL_ERROR') {
+        debugLifecycle.log(`[REALTIME ERROR] ${topic}`, { error: err });
+      }
+      if (status === 'TIMED_OUT') {
+        debugLifecycle.log(`[REALTIME TIMEOUT] ${topic}`);
+      }
+      if (status === 'CLOSED') {
+        debugLifecycle.realtimeDisconnected(topic);
+      }
+    });
+
+    // We also want to re-track whenever currentQuestion or strikeCount changes
+    // But channel.track must be called after subscribed.
+    const updatePresence = async () => {
+      if (channel.state === 'joined') {
+        await channel.track({
+          studentId: user.id,
+          name: user.user_metadata?.name || user.email,
+          email: user.email,
+          currentQuestionIndex: currentQuestion,
+          violationCount: strikeCount,
+          lastActive: new Date().toISOString()
+        });
+      }
+    };
+    
+    updatePresence();
+
+    return () => {
+      debugLifecycle.log(`[REALTIME CLEANUP] removing ${topic}`);
+      supabase.removeChannel(channel);
+    };
+  }, [user, attempt, isSubmitted, currentQuestion, strikeCount, id]);
 
   // ━━━ STRICT COUNTDOWN TIMER ━━━
   useEffect(() => {
@@ -261,7 +335,8 @@ export default function TestAttemptPage() {
     const filterParams = { event: 'UPDATE', schema: 'public', table: 'tests', filter: `id=eq.${id}` };
     console.log('[REALTIME FILTER] TestAttemptPage:', filterParams);
 
-    const channel = supabase.channel(`student-attempt-${id}`)
+    const channelName = `student-attempt-${id}-${Math.random().toString(36).substring(7)}`;
+    const channel = supabase.channel(channelName)
       .on('postgres_changes', filterParams, (payload) => {
         if (!mounted) return;
         debug.realtime.info('Test Updated during attempt', payload);
@@ -282,14 +357,24 @@ export default function TestAttemptPage() {
            console.error('[REALTIME CHANNEL_ERROR]', payload);
         }
       })
-      .subscribe((status, err) => {
-        console.log(`[REALTIME CHANNEL] student-attempt-${id}`);
-        console.log('[REALTIME STATUS]', status, err || '');
+      .subscribe(async (status, err) => {
+        if (status === 'SUBSCRIBED') {
+          debugLifecycle.realtimeConnected(channelName);
+        }
+        if (status === 'CHANNEL_ERROR') {
+          debugLifecycle.log(`[REALTIME ERROR] ${channelName}`, { error: err });
+        }
+        if (status === 'TIMED_OUT') {
+          debugLifecycle.log(`[REALTIME TIMEOUT] ${channelName}`);
+        }
+        if (status === 'CLOSED') {
+          debugLifecycle.realtimeDisconnected(channelName);
+        }
       });
 
     return () => {
       mounted = false;
-      debug.realtime.info(`Unsubscribing from student-attempt-${id}`);
+      debugLifecycle.log(`[REALTIME CLEANUP] removing ${channelName}`);
       supabase.removeChannel(channel);
     };
   }, [id, attempt, isSubmitted, forceSubmit]);
@@ -301,6 +386,8 @@ export default function TestAttemptPage() {
   };
 
   const handleSubmit = async (reason = 'completed') => {
+    if (submittingRef.current || isSubmitted || !attempt) return;
+    submittingRef.current = true;
     setIsSubmitting(true);
     try {
       await apiService.submitAttempt(attempt.id, answersRef.current);
@@ -310,14 +397,14 @@ export default function TestAttemptPage() {
       
       setIsSubmitted(true);
       toast.success("Assessment submitted successfully.");
-      
-      setTimeout(() => {
-        navigate(`/student/results/${id}`);
-      }, 2000);
+      navigate(`/student/results/${id}`, { replace: true });
     } catch (err) {
-      toast.error('Failed to submit assessment');
+      console.error('Failed to submit:', err);
+      toast.error('Submission may have been saved. Check your dashboard.');
+      navigate('/student/dashboard', { replace: true });
     } finally {
       setIsSubmitting(false);
+      submittingRef.current = false;
     }
   };
 
@@ -425,26 +512,29 @@ export default function TestAttemptPage() {
       
       {/* Anti-Cheat Trap Modal */}
       <AnimatePresence>
-        {isWarningModalOpen && (
+        {warningState?.isOpen && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-[100] bg-background/90 backdrop-blur-sm flex items-center justify-center p-6"
           >
             <motion.div 
               initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
-              className="bg-surface p-10 rounded-2xl max-w-md w-full shadow-2xl text-center border-2 border-danger/50"
+              className={`bg-surface p-10 rounded-2xl max-w-md w-full shadow-2xl text-center border-2 ${
+                warningState.severity === 'HIGH' ? 'border-danger/50' : 'border-warning/50'
+              }`}
             >
-              <div className="w-20 h-20 bg-danger/10 text-danger rounded-xl flex items-center justify-center mx-auto mb-6">
+              <div className={`w-20 h-20 rounded-xl flex items-center justify-center mx-auto mb-6 ${
+                warningState.severity === 'HIGH' ? 'bg-danger/10 text-danger' : 'bg-warning/10 text-warning'
+              }`}>
                 <AlertTriangle size={40} />
               </div>
               <h2 className="text-3xl font-display font-extrabold text-text mb-3 tracking-tight">Warning!</h2>
               <p className="text-text-muted font-sans mb-8 text-lg">
-                You left the secure environment. This is strike <strong className="text-danger text-xl">{strikeCount}</strong> of 3. 
-                If you leave again, your exam will be forcefully submitted.
+                {warningState.message}
               </p>
               <Button 
                 onClick={dismissWarning}
-                variant="danger"
+                variant={warningState.severity === 'HIGH' ? 'danger' : 'outline'}
                 className="w-full py-4 text-lg font-bold hover:shadow-lg transition-all"
               >
                 I Understand, Return to Test

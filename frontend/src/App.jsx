@@ -1,11 +1,14 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import MainLayout from './layouts/MainLayout';
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
+import { supabase } from './lib/supabase';
+import { ApplicationErrorBoundary } from './components/ui/ApplicationErrorBoundary';
+import { debugLifecycle } from './lib/debugLifecycle';
 
 // Lazy load pages
 const LandingPage = lazy(() => import('./pages/LandingPage'));
@@ -14,7 +17,9 @@ const TeacherDashboard = lazy(() => import('./pages/teacher/TeacherDashboard'));
 const CreateTestPage = lazy(() => import('./pages/teacher/CreateTestPage'));
 const TestViewerPage = lazy(() => import('./pages/teacher/TestViewerPage'));
 const TestAnalyticsPage = lazy(() => import('./pages/teacher/TestAnalyticsPage'));
+const LiveMonitor = lazy(() => import('./pages/teacher/LiveMonitor'));
 const BatchManagementPage = lazy(() => import('./pages/teacher/BatchManagementPage'));
+const BatchWorkspaceLayout = lazy(() => import('./pages/teacher/batch-workspace/BatchWorkspaceLayout'));
 const StudentDashboard = lazy(() => import('./pages/student/StudentDashboard'));
 const TestAttemptPage = lazy(() => import('./pages/student/TestAttemptPage'));
 const TestResultsPage = lazy(() => import('./pages/student/TestResultsPage'));
@@ -32,8 +37,9 @@ function AppRoutes() {
   const isValidRole = role === 'teacher' || role === 'student';
 
   return (
-    <Suspense fallback={<FullPageLoader title="Resolving View" subtitle="Loading page assets..." />}>
-      <Routes>
+    <ApplicationErrorBoundary>
+      <Suspense fallback={<FullPageLoader title="Resolving View" subtitle="Loading page assets..." />}>
+        <Routes>
         {/* Public */}
         <Route path="/" element={<LandingPage />} />
         <Route 
@@ -47,8 +53,10 @@ function AppRoutes() {
             <Route path="dashboard" element={<TeacherDashboard />} />
             <Route path="create-test" element={<CreateTestPage />} />
             <Route path="test/:id" element={<TestViewerPage />} />
+            <Route path="test/:id/live" element={<LiveMonitor />} />
             <Route path="analytics/:id" element={<TestAnalyticsPage />} />
             <Route path="batches" element={<BatchManagementPage />} />
+            <Route path="batches/:batchId/*" element={<BatchWorkspaceLayout />} />
             <Route path="profile" element={<ProfilePage />} />
           </Route>
         </Route>
@@ -69,13 +77,23 @@ function AppRoutes() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
+    </ApplicationErrorBoundary>
   );
 }
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, QueryCache } from '@tanstack/react-query';
 
-// Configure the global QueryClient with aggressive caching defaults
+// Configure the global QueryClient with aggressive caching defaults and timeouts
 const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error, query) => {
+      console.error(`[QUERY ERROR] ${query.queryKey.join(', ')}:`, error);
+      debugLifecycle.dataFailed(query.queryKey.join(', '), error);
+    },
+    onSuccess: (data, query) => {
+      debugLifecycle.log(`[QUERY SUCCESS] ${query.queryKey.join(', ')}`);
+    }
+  }),
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000, // 5 minutes
@@ -85,9 +103,41 @@ const queryClient = new QueryClient({
   },
 });
 
+function GlobalRealtimeSubscriber() {
+  useEffect(() => {
+    const channelName = `assessment-events-global-${Math.random().toString(36).substring(7)}`;
+    const channel = supabase.channel(channelName)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tests' }, (payload) => {
+        console.log('[GLOBAL REALTIME] Test updated:', payload);
+        const newStatus = payload.new?.status;
+        const oldStatus = payload.old?.status;
+        
+        if (newStatus && newStatus !== oldStatus) {
+          toast.info(`Assessment state changed to ${newStatus}`);
+        }
+        
+        // Globally invalidate all relevant queries
+        queryClient.invalidateQueries({ queryKey: ['assessments'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+        queryClient.invalidateQueries({ queryKey: ['test-results'] });
+        queryClient.invalidateQueries({ queryKey: ['analytics'] });
+      })
+      .subscribe((status, err) => {
+        if (err) console.error('[GLOBAL REALTIME] Subscription error:', err);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  return null;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <GlobalRealtimeSubscriber />
       <ErrorBoundary>
         <ThemeProvider>
           <AuthProvider>

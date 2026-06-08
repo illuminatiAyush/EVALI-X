@@ -1,12 +1,30 @@
 /**
  * ╔══════════════════════════════════════════════════════════════════╗
- * ║  TEST SERVICE — Backend Business Logic                          ║
- * ║  Hardened: Proper error handling + test lifecycle                ║
+ * ║  TEST SERVICE — Assessment Lifecycle State Machine               ║
+ * ║  Hardened: Strict transitions, versioned restarts, observability ║
+ * ║  DATABASE = SOURCE OF TRUTH. FRONTEND = DISPLAY ONLY.           ║
  * ╚══════════════════════════════════════════════════════════════════╝
  */
 
 const { createUserClient, supabaseAdmin } = require('../utils/supabaseClient');
 const { logger } = require('../utils/logger');
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// STRICT STATE MACHINE — Only these transitions are allowed.
+// Any other transition is a hard rejection (400 Bad Request).
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const ALLOWED_TRANSITIONS = {
+  'scheduled': ['active', 'ended'],
+  'active': ['ended'],
+  'ended': ['active'],
+};
+
+const ACTION_TO_TARGET = {
+  'publish': 'scheduled',
+  'start': 'active',
+  'end': 'ended',
+  'restart': 'active',
+};
 
 class TestService {
   /**
@@ -31,6 +49,8 @@ class TestService {
     const supabase = createUserClient(token);
     const { title, difficulty, duration_minutes, total_marks, content, is_ai_generated, start_time, end_time, status } = data;
 
+    logger.info({ userId, title }, '[ASSESSMENT] Creating new assessment');
+
     // 1. Insert test
     const { data: test, error: testError } = await this.withTimeout(
       supabase
@@ -43,6 +63,7 @@ class TestService {
           status: status || 'draft',
           start_time: start_time || null,
           end_time: end_time || null,
+          test_version: 1,
           source_document: is_ai_generated ? { ai_generated: true } : null,
           created_by: userId,
         })
@@ -51,7 +72,7 @@ class TestService {
     );
 
     if (testError) {
-      logger.error({ err: testError }, 'Failed to create test record');
+      logger.error({ err: testError }, '[ASSESSMENT] Failed to create test record');
       throw new Error(testError.message || 'Failed to create test');
     }
 
@@ -71,10 +92,11 @@ class TestService {
       );
 
       if (qError) {
-        logger.error({ err: qError, testId: test.id }, 'Failed to insert questions');
+        logger.error({ err: qError, testId: test.id }, '[ASSESSMENT] Failed to insert questions');
       }
     }
 
+    logger.info({ testId: test.id, questionCount: content?.questions?.length }, '[ASSESSMENT] Assessment created successfully');
     return test;
   }
 
@@ -94,7 +116,7 @@ class TestService {
     );
 
     if (error) {
-      logger.error({ err: error, testId }, 'Failed to assign test to batches');
+      logger.error({ err: error, testId }, '[ASSESSMENT] Failed to assign test to batches');
       throw new Error(error.message || 'Failed to assign test to batches');
     }
 
@@ -102,75 +124,93 @@ class TestService {
   }
 
   /**
-   * Updates test status (publish/start/end).
-   * Uses user-scoped client to respect RLS.
+   * Fetches restart metadata (submission/evaluation counts) for confirmation modal.
+   */
+  static async getRestartInfo(token, userId, testId) {
+    const supabase = createUserClient(token);
+
+    // Get current test version
+    const { data: test, error: testError } = await supabase
+      .from('tests')
+      .select('test_version, status')
+      .eq('id', testId)
+      .eq('created_by', userId)
+      .single();
+
+    if (testError || !test) throw new Error('Test not found');
+
+    // Count attempts for current version
+    const { count: submissionCount } = await supabaseAdmin
+      .from('attempts')
+      .select('id', { count: 'exact', head: true })
+      .eq('test_id', testId)
+      .eq('test_version', test.test_version)
+      .in('status', ['submitted', 'evaluated', 'forced_end']);
+
+    const { count: evaluatedCount } = await supabaseAdmin
+      .from('attempts')
+      .select('id', { count: 'exact', head: true })
+      .eq('test_id', testId)
+      .eq('test_version', test.test_version)
+      .eq('status', 'evaluated');
+
+    const { count: activeCount } = await supabaseAdmin
+      .from('attempts')
+      .select('id', { count: 'exact', head: true })
+      .eq('test_id', testId)
+      .eq('test_version', test.test_version)
+      .eq('status', 'in_progress');
+
+    return {
+      currentVersion: test.test_version,
+      status: test.status,
+      submissions: submissionCount || 0,
+      evaluated: evaluatedCount || 0,
+      activeStudents: activeCount || 0,
+    };
+  }
+
+  /**
+   * Updates test status using the atomic RPC function.
+   * Broadcasts real-time events globally upon success.
    */
   static async updateTestStatus(token, userId, testId, action) {
     const supabase = createUserClient(token);
 
-    const updates = {};
-    if (action === 'publish') {
-      updates.status = 'scheduled';
-    } else if (action === 'start') {
-      updates.status = 'active';
-      updates.start_time = new Date().toISOString();
-    } else if (action === 'end') {
-      updates.status = 'ended';
-      updates.end_time = new Date().toISOString();
+    logger.info({ testId, userId, action }, '[ASSESSMENT STATE] Attempting transition');
 
-      // Force-end all active attempts using admin client (bypasses RLS)
-      const { error: attemptsError } = await supabaseAdmin
-        .from('attempts')
-        .update({ status: 'forced_end', completed_at: new Date().toISOString() })
-        .eq('test_id', testId)
-        .eq('status', 'in_progress');
-
-      if (attemptsError) {
-        logger.error({ err: attemptsError, testId }, 'Failed to force-end active attempts');
-      } else {
-        logger.info({ testId }, 'All active attempts force-ended');
-      }
-    } else if (action === 'restart') {
-      const { data: currentTest, error: fetchError } = await supabase
-        .from('tests')
-        .select('duration_minutes')
-        .eq('id', testId)
-        .single();
-      
-      if (fetchError || !currentTest) throw new Error('Failed to fetch test for restart');
-      
-      const now = new Date();
-      const endTime = new Date(now.getTime() + currentTest.duration_minutes * 60000);
-
-      updates.status = 'active';
-      updates.start_time = now.toISOString();
-      updates.end_time = endTime.toISOString();
-    } else {
-      throw new Error('Invalid action');
-    }
-
-    console.log(`[DB UPDATE] Preparing updates for action: ${action}`);
-    console.log(`[DB UPDATE] updates object:`, updates);
-    console.log(`[DB UPDATE] Attempting status change for testId: ${testId} by userId: ${userId}`);
-
-    const { data: test, error } = await this.withTimeout(
-      supabase
-        .from('tests')
-        .update(updates)
-        .eq('id', testId)
-        .eq('created_by', userId)
-        .select()
-        .single()
+    // 1. Call atomic RPC
+    const { data: result, error } = await this.withTimeout(
+      supabase.rpc('update_assessment_state', {
+        p_test_id: testId,
+        p_action: action
+      })
     );
 
     if (error) {
-      console.log(`[DB UPDATE ERROR]`, error);
-    } else {
-      console.log(`[DB UPDATE RESULT]`, test);
+      logger.error({ err: error, testId, action }, '[ASSESSMENT STATE] RPC execution failed');
+      throw new Error(error.message || `Failed to ${action} assessment`);
     }
 
-    if (error) throw new Error(error.message || `Failed to ${action} test`);
-    return test;
+    if (!result.success) {
+      logger.error({ result, testId, action }, '[ASSESSMENT STATE] Transition rejected by RPC');
+      throw new Error(result.error || `Transition rejected`);
+    }
+
+    logger.info({
+      testId,
+      action,
+      previousState: result.previous_status,
+      newState: result.status,
+      version: result.test_version,
+    }, '[STATE TRANSITION] Successful atomic update');
+
+    // Return the updated state
+    return {
+      id: testId,
+      status: result.status,
+      test_version: result.test_version
+    };
   }
 }
 

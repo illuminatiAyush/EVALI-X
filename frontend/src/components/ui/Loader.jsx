@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 /**
  * 1. SleekSpinner - A premium minimalist gradient spinner with soft glow
@@ -116,6 +117,39 @@ export function GlowingRing({ className = '' }) {
  * 5. FullPageLoader - Fullscreen backdrop with SleekSpinner
  */
 export function FullPageLoader({ title = 'Initializing Session', subtitle = 'Preparing your workspace' }) {
+  const [isStuck, setIsStuck] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsStuck(true);
+      console.error('[LOADER TIMEOUT] Component stayed in loading state for > 10s');
+    }, 10000); // 10 second maximum allowed loading time
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isStuck) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-text transition-colors duration-200">
+        <div className="bg-surface border border-border p-8 rounded-2xl max-w-sm w-full shadow-lg text-center animate-in zoom-in-95 duration-300">
+          <div className="w-14 h-14 bg-red-500/10 text-red-500 rounded-xl flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle size={28} />
+          </div>
+          <h2 className="text-xl font-display font-bold text-text mb-2 tracking-tight">Loading Failed</h2>
+          <p className="text-text-muted text-sm mb-6 leading-relaxed">
+            The application took too long to respond. This might be due to network issues or a background service failure.
+          </p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="w-full flex justify-center items-center gap-2 py-3 bg-text hover:bg-text/90 text-surface rounded-xl font-semibold text-sm transition-all active:scale-95"
+          >
+            <RefreshCw size={16} />
+            Refresh Application
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-text transition-colors duration-200">
       <div className="relative mb-6">

@@ -51,10 +51,10 @@ const STATS = [
 ];
 
 const FEATURES = [
-  { icon: Zap, color: 'text-teal-600', bg: 'bg-teal-50', title: 'Blazing Fast AI', desc: 'Generate 50 questions in under 2 seconds using Groq LPU inference. Zero wait time.', tag: 'CORE', span: 'md:col-span-5' },
-  { icon: ShieldCheck, color: 'text-orange-500', bg: 'bg-orange-50', title: 'Bank-Grade Security', desc: 'Supabase RLS isolates student & teacher data. Zero cross-access possible.', tag: 'SECURITY', span: 'md:col-span-7' },
-  { icon: FileText, color: 'text-emerald-600', bg: 'bg-emerald-50', title: 'Fair Evaluation', desc: 'AI scores against your rubric — eliminating bias and standardizing results.', tag: 'AI', span: 'md:col-span-7' },
-  { icon: BarChart3, color: 'text-amber-500', bg: 'bg-amber-50', title: 'Rich Analytics', desc: 'Per-question breakdowns, violation tracking, and performance insights.', tag: 'ANALYTICS', span: 'md:col-span-5' },
+  { icon: Zap, color: 'text-teal-600 dark:text-teal-400', bg: 'bg-teal-50 dark:bg-teal-500/10', title: 'Blazing Fast AI', desc: 'Generate 50 questions in under 2 seconds using Groq LPU inference. Zero wait time.', tag: 'CORE', span: 'md:col-span-5' },
+  { icon: ShieldCheck, color: 'text-orange-500 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-500/10', title: 'Bank-Grade Security', desc: 'Supabase RLS isolates student & teacher data. Zero cross-access possible.', tag: 'SECURITY', span: 'md:col-span-7' },
+  { icon: FileText, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', title: 'Fair Evaluation', desc: 'AI scores against your rubric — eliminating bias and standardizing results.', tag: 'AI', span: 'md:col-span-7' },
+  { icon: BarChart3, color: 'text-amber-500 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10', title: 'Rich Analytics', desc: 'Per-question breakdowns, violation tracking, and performance insights.', tag: 'ANALYTICS', span: 'md:col-span-5' },
 ];
 
 const TESTIMONIALS = [
@@ -181,10 +181,10 @@ export default function LandingPage() {
               is <span className="gradient-text">already here.</span>
             </motion.h1>
 
-            <motion.p variants={fadeUp} className="text-lg md:text-xl text-gray-400 leading-relaxed mb-10 max-w-2xl font-light">
-              Create <span className="font-serif italic text-text-muted">intelligent</span> tests in seconds, 
-              grade with <span className="font-serif italic text-text-muted">precision</span>, and unlock 
-              insights that <span className="font-serif italic text-text-muted">transform</span> education.
+            <motion.p variants={fadeUp} className="text-lg md:text-xl text-text-muted leading-relaxed mb-10 max-w-2xl font-light">
+              Create <span className="font-serif italic text-text">intelligent</span> tests in seconds, 
+              grade with <span className="font-serif italic text-text">precision</span>, and unlock 
+              insights that <span className="font-serif italic text-text">transform</span> education.
             </motion.p>
 
             <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-center gap-4">
@@ -196,13 +196,13 @@ export default function LandingPage() {
               </Link>
             </motion.div>
 
-            <motion.div variants={fadeUp} className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-px bg-gray-100 rounded-2xl overflow-hidden border border-border w-full max-w-2xl">
+            <motion.div variants={fadeUp} className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-px bg-border rounded-2xl overflow-hidden border border-border w-full max-w-2xl">
               {STATS.map(s => (
                 <div key={s.label} className="bg-surface px-6 py-5 text-center">
-                  <div className="text-2xl md:text-3xl font-display font-extrabold text-teal-600">
+                  <div className="text-2xl md:text-3xl font-display font-extrabold text-teal-600 dark:text-teal-400">
                     {s.text ? s.text : <CountUp end={s.num} prefix={s.prefix || ''} suffix={s.suffix || ''} />}
                   </div>
-                  <div className="text-[11px] font-medium text-gray-400 mt-1 uppercase tracking-wider">{s.label}</div>
+                  <div className="text-[11px] font-medium text-text-muted mt-1 uppercase tracking-wider">{s.label}</div>
                 </div>
               ))}
             </motion.div>
@@ -211,8 +211,8 @@ export default function LandingPage() {
       </section>
 
       {/* ── THE LEGEND OF EVALIX ── */}
-      <section className="py-24 bg-gradient-to-b from-white via-teal-50/20 to-white relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-[400px] h-[400px] bg-orange-50 rounded-full blur-[100px] pointer-events-none opacity-60" />
+      <section className="py-24 bg-gradient-to-b from-surface via-brand-light to-surface relative overflow-hidden">
+        <div className="absolute right-0 top-0 w-[400px] h-[400px] bg-accent-light rounded-full blur-[100px] pointer-events-none opacity-60" />
         <Container className="relative z-10">
           <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.7 }}>
             <div className="max-w-3xl mx-auto text-center mb-16">
@@ -227,9 +227,9 @@ export default function LandingPage() {
 
             <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
               {[
-                { num: '01', color: 'border-teal-200 bg-teal-50/50', accent: 'text-teal-600', title: 'The Problem', desc: 'Teachers spent countless hours manually creating assessments, grading papers, and compiling results. Students waited days for feedback. The system was broken.' },
-                { num: '02', color: 'border-orange-200 bg-orange-50/50', accent: 'text-orange-600', title: 'The Spark', desc: 'What if AI could generate an entire exam in seconds? What if grading was instant, unbiased, and perfectly consistent? That question changed everything.' },
-                { num: '03', color: 'border-emerald-200 bg-emerald-50/50', accent: 'text-emerald-600', title: 'The Revolution', desc: 'Evalix was born — a platform where assessments create themselves, answers grade themselves, and insights reveal themselves. The future, delivered today.' },
+                { num: '01', color: 'border-teal-200 bg-teal-50/50 dark:border-teal-500/20 dark:bg-teal-500/10', accent: 'text-teal-600 dark:text-teal-400', title: 'The Problem', desc: 'Teachers spent countless hours manually creating assessments, grading papers, and compiling results. Students waited days for feedback. The system was broken.' },
+                { num: '02', color: 'border-orange-200 bg-orange-50/50 dark:border-orange-500/20 dark:bg-orange-500/10', accent: 'text-orange-600 dark:text-orange-400', title: 'The Spark', desc: 'What if AI could generate an entire exam in seconds? What if grading was instant, unbiased, and perfectly consistent? That question changed everything.' },
+                { num: '03', color: 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-500/20 dark:bg-emerald-500/10', accent: 'text-emerald-600 dark:text-emerald-400', title: 'The Revolution', desc: 'Evalix was born — a platform where assessments create themselves, answers grade themselves, and insights reveal themselves. The future, delivered today.' },
               ].map((step, i) => (
                 <motion.div key={step.num} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.15, duration: 0.5 }}
                   className={`relative p-8 rounded-2xl border ${step.color} group hover:shadow-lg transition-all`}>
@@ -251,7 +251,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── FEATURES ── */}
-      <section id="features" className="py-20 bg-gradient-to-b from-gray-50 to-white">
+      <section id="features" className="py-20 bg-gradient-to-b from-surface-muted to-surface">
         <Container>
           <motion.div variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true }}>
             <motion.div variants={fadeUp} className="mb-14 text-center">
@@ -287,8 +287,8 @@ export default function LandingPage() {
 
               <div className="space-y-8">
                 {[
-                  { icon: ShieldCheck, color: 'text-teal-600', bg: 'bg-teal-50', borderColor: 'border-teal-200', label: 'INSTRUCTOR', title: 'For Teachers', items: ['AI-generated question banks', 'One-click test deployment', 'Real-time class analytics'], cta: 'Instructor Mode' },
-                  { icon: GraduationCap, color: 'text-emerald-600', bg: 'bg-emerald-50', borderColor: 'border-emerald-200', label: 'STUDENT', title: 'For Students', items: ['Take tests on any device', 'Instant AI feedback', 'Track your progress'], cta: 'Student Portal' },
+                  { icon: ShieldCheck, color: 'text-teal-600 dark:text-teal-400', bg: 'bg-teal-50 dark:bg-teal-500/10', borderColor: 'border-teal-200 dark:border-teal-500/20', label: 'INSTRUCTOR', title: 'For Teachers', items: ['AI-generated question banks', 'One-click test deployment', 'Real-time class analytics'], cta: 'Instructor Mode' },
+                  { icon: GraduationCap, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', borderColor: 'border-emerald-200 dark:border-emerald-500/20', label: 'STUDENT', title: 'For Students', items: ['Take tests on any device', 'Instant AI feedback', 'Track your progress'], cta: 'Student Portal' },
                 ].map(t => (
                   <motion.div key={t.title} variants={fadeUp} className={`pl-6 border-l-2 ${t.borderColor}`}>
                     <span className={`text-[10px] font-semibold ${t.color} uppercase tracking-wider`}>{t.label}</span>
@@ -308,14 +308,14 @@ export default function LandingPage() {
 
             {/* Visual card */}
             <motion.div variants={fadeUp} className="hidden lg:block">
-              <div className="bg-gradient-to-br from-teal-50 to-orange-50 border border-border rounded-2xl p-8 shadow-soft">
+              <div className="bg-gradient-to-br from-surface-muted to-surface border border-border rounded-2xl p-8 shadow-soft">
                 <div className="bg-surface rounded-xl border border-border p-5 shadow-sm mb-4">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center"><Zap size={16} className="text-teal-600" /></div>
-                    <div><div className="h-3 w-28 bg-gray-200 rounded" /><div className="h-2 w-40 bg-gray-100 rounded mt-1.5" /></div>
+                    <div className="w-8 h-8 bg-teal-100 dark:bg-teal-500/20 rounded-lg flex items-center justify-center"><Zap size={16} className="text-teal-600 dark:text-teal-400" /></div>
+                    <div><div className="h-3 w-28 bg-surface-muted rounded" /><div className="h-2 w-40 bg-border rounded mt-1.5" /></div>
                   </div>
                   <div className="grid grid-cols-3 gap-3">
-                    {[{ c: 'bg-teal-50 text-teal-600', v: '14', l: 'Tests' }, { c: 'bg-orange-50 text-orange-500', v: '312', l: 'Students' }, { c: 'bg-emerald-50 text-emerald-600', v: '87%', l: 'Avg' }].map((s, i) => (
+                    {[{ c: 'bg-teal-50 dark:bg-teal-500/10 text-teal-600 dark:text-teal-400', v: '14', l: 'Tests' }, { c: 'bg-orange-50 dark:bg-orange-500/10 text-orange-500 dark:text-orange-400', v: '312', l: 'Students' }, { c: 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400', v: '87%', l: 'Avg' }].map((s, i) => (
                       <div key={i} className={`${s.c} rounded-lg p-3 text-center`}>
                         <div className="text-lg font-display font-bold">{s.v}</div>
                         <div className="text-[10px] font-medium opacity-60">{s.l}</div>
@@ -325,10 +325,10 @@ export default function LandingPage() {
                 </div>
                 <div className="bg-surface rounded-xl border border-border p-4 shadow-sm">
                   {[1, 2].map(i => (
-                    <div key={i} className={`flex items-center gap-3 py-3 ${i < 2 ? 'border-b border-gray-50' : ''}`}>
-                      <div className="w-9 h-9 bg-surface-muted rounded-lg flex items-center justify-center text-gray-400"><FileText size={16} /></div>
-                      <div className="flex-1"><div className="h-2.5 w-24 bg-gray-200 rounded mb-1.5" /><div className="h-2 w-16 bg-emerald-100 rounded" /></div>
-                      <div className="text-xs font-semibold text-gray-400">View →</div>
+                    <div key={i} className={`flex items-center gap-3 py-3 ${i < 2 ? 'border-b border-border' : ''}`}>
+                      <div className="w-9 h-9 bg-surface-muted rounded-lg flex items-center justify-center text-text-muted"><FileText size={16} /></div>
+                      <div className="flex-1"><div className="h-2.5 w-24 bg-surface-muted rounded mb-1.5" /><div className="h-2 w-16 bg-border rounded" /></div>
+                      <div className="text-xs font-semibold text-text-muted">View →</div>
                     </div>
                   ))}
                 </div>
@@ -339,7 +339,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── TESTIMONIALS ── */}
-      <section className="py-20 bg-gradient-to-b from-teal-50/40 to-white">
+      <section className="py-20 bg-gradient-to-b from-surface-muted/40 to-surface">
         <Container><TestimonialSlider /></Container>
       </section>
 
