@@ -15,7 +15,6 @@ import {
   X,
   User
 } from 'lucide-react';
-import ThemeToggle from '../components/ThemeToggle';
 import NotificationMenu from '../components/NotificationMenu';
 
 export default function MainLayout() {
@@ -49,7 +48,7 @@ export default function MainLayout() {
 
   const roleBg = role === 'teacher' 
     ? 'bg-brand-light text-brand' 
-    : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400';
+    : 'bg-emerald-50 text-emerald-600';
   const roleLabel = role === 'teacher' ? 'Teacher' : 'Student';
 
   return (
@@ -123,7 +122,6 @@ export default function MainLayout() {
         </div>
         
         <div className="flex items-center gap-1.5">
-          <ThemeToggle />
           <NotificationMenu />
           <button 
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -175,12 +173,10 @@ export default function MainLayout() {
         <header className="hidden lg:flex h-16 bg-surface/80 backdrop-blur-md border-b border-border sticky top-0 z-30 px-8 items-center justify-between transition-colors duration-200">
           <div />
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600">
               <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
               <span className="text-[10px] font-semibold">Online</span>
             </div>
-            
-            <ThemeToggle />
             
             <NotificationMenu />
             <Link to={`/${role}/profile`} className="p-2 text-text-muted hover:text-text hover:bg-surface-muted rounded-xl transition-all">

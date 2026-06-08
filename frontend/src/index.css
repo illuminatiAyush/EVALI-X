@@ -31,33 +31,6 @@
     --warning: #f59e0b;
     --ring: rgba(13, 148, 136, 0.20);
   }
-
-  .dark {
-    /* ─── EVALIX DARK — obsidian/indigo deep night ─── */
-    --background: #090d16;
-    --surface: #0f172a;
-    --surface-muted: #1e293b;
-
-    --brand: #14b8a6;        /* Teal-500 — slightly brighter for readability */
-    --brand-hover: #2dd4bf;
-    --brand-light: rgba(20, 184, 166, 0.15);
-    --brand-glow: rgba(20, 184, 166, 0.15);
-
-    --accent: #f97316;
-    --accent-hover: #fb923c;
-    --accent-light: rgba(249, 115, 22, 0.15);
-
-    --text: #f8fafc;         /* Slate-50 */
-    --text-muted: #94a3b8;   /* Slate-400 */
-    --border: #1e293b;       /* Slate-800 */
-    --border-hover: #334155;
-
-    --danger: #f87171;
-    --danger-hover: #ef4444;
-    --success: #4ade80;
-    --warning: #fbbf24;
-    --ring: rgba(20, 184, 166, 0.30);
-  }
 }
 
 * { box-sizing: border-box; }
