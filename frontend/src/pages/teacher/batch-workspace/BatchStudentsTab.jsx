@@ -137,15 +137,6 @@ export default function BatchStudentsTab({ batchId }) {
                   <p className="text-2xl font-bold text-red-500">{selectedStudent.violation_count}</p>
                 </div>
               </div>
-
-              {/* Activity Feed Placeholder for deep integration later */}
-              <div className="pt-4 border-t border-border">
-                <h4 className="text-sm font-semibold text-text uppercase tracking-wider mb-4 flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 bg-brand rounded-full"></div>
-                  Recent Assessment Activity
-                </h4>
-                <div className="text-center py-8">
-                  <p className="text-sm text-text-muted">Detailed attempt logs will be synchronized here shortly.</p>
                 </div>
               </div>
             </div>

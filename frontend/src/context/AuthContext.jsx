@@ -228,12 +228,11 @@ export const AuthProvider = ({ children }) => {
         if (profileError) {
           debug.db.error('Profile creation failed!', {
             error: profileError.message,
-            code: profileError.code,
-            fix: 'RUN SQL: CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);'
+            code: profileError.code
           });
           // Rollback: sign out the user if their profile couldn't be created
           await auth.signOut();
-          return { success: false, error: 'Database policy missing: Please run the INSERT SQL policy in Supabase to allow profile creation.' };
+          return { success: false, error: 'Database policy missing: Profile could not be created.' };
         } else {
           debug.db.info('Profile created successfully', { role: userRole });
         }

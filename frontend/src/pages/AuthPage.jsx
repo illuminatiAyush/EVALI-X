@@ -67,10 +67,10 @@ export default function AuthPage() {
 
           <div className="space-y-6 max-w-lg">
             <h1 className="text-5xl font-display font-extrabold leading-[1.1] tracking-tighter">
-              Authenticate <br /> <span className="text-brand">System Access.</span>
+              Access the <br /> <span className="text-brand">Evaluation Platform.</span>
             </h1>
             <p className="text-lg text-text-muted font-sans leading-relaxed">
-              Initialize connection to the Groq-backed AI assessment engine. Secure authentication protocol active.
+              Log in to manage assessments or sign up to join your institution.
             </p>
           </div>
         </div>
@@ -103,10 +103,10 @@ export default function AuthPage() {
         >
           <div className="text-center lg:text-left mb-10">
             <h2 className="text-4xl font-display font-extrabold tracking-tight text-text">
-              {isLogin ? 'System Authentication' : 'Institutional Registration'}
+              {isLogin ? 'Welcome Back' : 'Create an Account'}
             </h2>
             <p className="text-brand mt-3 font-mono text-xs uppercase tracking-widest">
-              {isLogin ? 'Protocol: Awaiting Credentials' : 'Protocol: Awaiting Initialization'}
+              {isLogin ? 'Please log in to continue' : 'Register as a new user'}
             </p>
           </div>
 
@@ -154,7 +154,7 @@ export default function AuthPage() {
                     exit={{ opacity: 0, height: 0 }}
                     className="space-y-3 overflow-hidden"
                   >
-                    <label className="block text-[10px] font-mono font-bold text-text-muted mb-2 uppercase tracking-widest">Select Institutional Role</label>
+                    <label className="block text-[10px] font-mono font-bold text-text-muted mb-2 uppercase tracking-widest">Select Your Role</label>
                     <div className="grid grid-cols-2 gap-4">
                       <button
                         type="button"
@@ -166,7 +166,7 @@ export default function AuthPage() {
                         }`}
                       >
                         <GraduationCap size={18} />
-                        Candidate
+                        Student
                       </button>
                       <button
                         type="button"
@@ -178,7 +178,7 @@ export default function AuthPage() {
                         }`}
                       >
                         <ShieldCheck size={18} />
-                        Instructor
+                        Teacher
                       </button>
                     </div>
                   </motion.div>
@@ -192,19 +192,20 @@ export default function AuthPage() {
               loading={loading}
               className="w-full py-4 text-base shadow-soft"
             >
-              {isLogin ? 'Authenticate' : 'Initialize'}
+              {isLogin ? 'Log In' : 'Register Account'}
               <ArrowRight size={18} className="ml-2" />
             </Button>
           </form>
 
           <div className="pt-8 mt-8 border-t border-border text-center">
             <p className="text-text-muted font-medium font-sans text-sm">
-              {isLogin ? "No clearance yet? " : "Already initialized? "}
+              {isLogin ? "Don't have an account? " : "Already have an account? "}
               <button 
+                type="button"
                 onClick={() => setIsLogin(!isLogin)}
                 className="text-brand font-bold hover:underline underline-offset-4"
               >
-                {isLogin ? 'Request access' : 'Authenticate here'}
+                {isLogin ? 'Register here' : 'Log in here'}
               </button>
             </p>
           </div>
