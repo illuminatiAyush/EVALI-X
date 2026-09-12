@@ -137,8 +137,6 @@ export default function BatchStudentsTab({ batchId }) {
                   <p className="text-2xl font-bold text-red-500">{selectedStudent.violation_count}</p>
                 </div>
               </div>
-                </div>
-              </div>
             </div>
           </Card>
         </div>
@@ -146,3 +144,4 @@ export default function BatchStudentsTab({ batchId }) {
     </div>
   );
 }
+
