@@ -410,7 +410,207 @@ const _apiService = {
   /**
    * Fetches aggregate stats for the Teacher Dashboard using direct DB queries (RLS protected)
    */
-  // Removed duplicate getTeacherDashboardStats
+  async getTeacherDashboardStats() {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
+    if (!user) return { totalAttempts: 0, classAvg: 0 };
+
+    // Get teacher's tests
+    const { data: tests } = await supabase
+      .from('tests')
+      .select('id')
+      .eq('created_by', user.id);
+
+    if (!tests || tests.length === 0) return { totalAttempts: 0, classAvg: 0 };
+    
+    const testIds = tests.map(t => t.id);
+
+    // Get all results for these tests
+    const { data: results } = await supabase
+      .from('results')
+      .select('marks, test_id')
+      .in('test_id', testIds);
+
+    const totalAttempts = results ? results.length : 0;
+    
+    // We need total_marks from the tests to calculate percentage accurately
+    // Alternatively, we just do a rough average if results.marks is total, wait, marks is the score.
+    // Let's get total_marks from tests
+    const { data: testsFull } = await supabase
+      .from('tests')
+      .select('id, total_questions')
+      .in('id', testIds);
+      
+    const testMarksMap = {};
+    if (testsFull) {
+      testsFull.forEach(t => testMarksMap[t.id] = t.total_questions || 100);
+    }
+
+    let sumPercentage = 0;
+    if (results && results.length > 0) {
+      results.forEach(r => {
+        const total = testMarksMap[r.test_id] || 100;
+        sumPercentage += (r.marks / total) * 100;
+      });
+    }
+    
+    const classAvg = totalAttempts > 0 ? Math.round(sumPercentage / totalAttempts) : 0;
+    
+    return { totalAttempts, classAvg };
+  },
+
+  /**
+   * Fetches aggregate stats for the Student Dashboard using direct DB queries (RLS protected)
+   */
+  async getStudentDashboardStats() {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
+    if (!user) return { totalAttempts: 0, avgAccuracy: 0, learningPoints: 0 };
+
+    const { data: results } = await supabase
+      .from('results')
+      .select('marks, test_id')
+      .eq('student_id', user.id);
+
+    const totalAttempts = results ? results.length : 0;
+    
+    if (totalAttempts === 0) return { totalAttempts: 0, avgAccuracy: 0, learningPoints: 0 };
+
+    const testIds = results.map(r => r.test_id);
+    const { data: testsFull } = await supabase
+      .from('tests')
+      .select('id, total_questions')
+      .in('id', testIds);
+      
+    const testMarksMap = {};
+    if (testsFull) {
+      testsFull.forEach(t => testMarksMap[t.id] = t.total_questions || 100);
+    }
+
+    let sumPercentage = 0;
+    results.forEach(r => {
+      const total = testMarksMap[r.test_id] || 100;
+      sumPercentage += (r.marks / total) * 100;
+    });
+
+    const avgAccuracy = Math.round(sumPercentage / totalAttempts);
+    const learningPoints = (totalAttempts * 50) + Math.round(sumPercentage);
+
+    return { totalAttempts, avgAccuracy, learningPoints };
+  },
+
+  /**
+   * Fetches the number of attempts for a list of test IDs
+   */
+  async getTestAttemptCounts(testIds) {
+    if (!testIds || testIds.length === 0) return {};
+    
+    const { data: attempts } = await supabase
+      .from('attempts')
+      .select('test_id')
+      .in('test_id', testIds);
+      
+    const counts = {};
+    if (attempts) {
+      attempts.forEach(a => {
+        counts[a.test_id] = (counts[a.test_id] || 0) + 1;
+      });
+    }
+    return counts;
+  },
+
+  // ─── Batch System ──────────────────────────────────────────────
+  
+  async createBatch(name, expiresAt = null) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Unauthorized');
+
+    // Generate a random 6-character alphanumeric join code
+    const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+    const { data, error } = await supabase
+      .from('batches')
+      .insert({
+        name,
+        teacher_id: user.id,
+        join_code: joinCode,
+        expires_at: expiresAt
+      })
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message || 'Failed to create batch');
+    return data;
+  },
+
+  async joinBatch(joinCode) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Unauthorized');
+
+    console.log('[JOIN] Executing RPC for join_code:', joinCode);
+
+    // Call the secure RPC function to bypass RLS and perform the join atomically
+    const { data, error } = await supabase.rpc('join_batch_by_code', {
+      p_join_code: joinCode
+    });
+
+    console.log('[JOIN] RPC Result:', data);
+    console.log('[JOIN] RPC Error:', error);
+
+    // Handle network/RPC level errors
+    if (error) throw new Error(error.message || 'Failed to connect to server');
+
+    // Handle logical errors returned by the RPC function
+    if (data && !data.success) {
+      throw new Error(data.error || 'Failed to join class');
+    }
+
+    return { success: true };
+  },
+
+  async getBatches(limit = 20, offset = 0) {
+    const { data, error } = await supabase
+      .from('batches')
+      .select('*, teacher:profiles(name)')
+      .range(offset, offset + limit - 1)
+      .order('created_at', { ascending: false });
+
+    if (error) throw new Error(error.message || 'Failed to fetch batches');
+    return { success: true, data };
+  },
+
+  async assignTestToBatch(testId, batchIds) {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // First verify user owns the test
+    const { data: test } = await supabase
+      .from('tests')
+      .select('id')
+      .eq('id', testId)
+      .eq('created_by', user.id)
+      .single();
+      
+    if (!test) throw new Error('Test not found or unauthorized');
+
+    // Insert batch assignments
+    const mappings = batchIds.map(batchId => ({
+      test_id: testId,
+      batch_id: batchId
+    }));
+
+    const { error } = await supabase
+      .from('test_batches')
+      .insert(mappings);
+
+    if (error) throw new Error(error.message || 'Failed to assign test to batches');
+    return { success: true };
+  },
+
+  /**
+   * ─── TEACHER COMMAND CENTER & BATCH WORKSPACE ──────────────────────────────
+   */
+
+  // Duplicate backend getTeacherDashboardStats removed to fix timeouts
 
   async getBatchOverview(batchId) {
     const { data: { session } } = await supabase.auth.getSession();
