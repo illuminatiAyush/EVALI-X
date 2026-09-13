@@ -55,7 +55,11 @@ export default function TeacherDashboard() {
     enabled: !!user,
   });
 
-  const activeTests = tests.filter(t => ['active', 'scheduled'].includes(t.status));
+  const currentTime = new Date();
+  const activeTests = tests.filter(t => {
+    if (t.end_time && new Date(t.end_time) <= currentTime) return false;
+    return ['active', 'scheduled'].includes(t.status);
+  });
   const isLoading = statsLoading || testsLoading || notifsLoading;
 
   if (isLoading) {
