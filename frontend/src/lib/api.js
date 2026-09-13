@@ -734,32 +734,39 @@ const _apiService = {
    */
 
   async getNotifications() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw new Error('Unauthorized');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Unauthorized');
 
-    const res = await fetch(`${BACKEND_URL}/notifications`, {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    if (!res.ok) throw new Error('Failed to fetch notifications');
-    const json = await res.json();
-    return json.data;
+    // Direct Supabase call — no backend hop, no cold-boot timeout
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error) throw new Error(error.message || 'Failed to fetch notifications');
+    return data;
   },
 
   async markNotificationsRead(ids = []) {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw new Error('Unauthorized');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Unauthorized');
 
-    const res = await fetch(`${BACKEND_URL}/notifications/read`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ ids }),
-    });
-    if (!res.ok) throw new Error('Failed to mark notifications read');
-    const json = await res.json();
-    return json.data;
+    // Direct Supabase call — no backend hop, no cold-boot timeout
+    let query = supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('user_id', user.id)
+      .eq('is_read', false);
+
+    if (ids && ids.length > 0) {
+      query = query.in('id', ids);
+    }
+
+    const { data, error } = await query.select();
+    if (error) throw new Error(error.message || 'Failed to mark notifications read');
+    return data;
   },
 
   // AI Usage & Analytics
