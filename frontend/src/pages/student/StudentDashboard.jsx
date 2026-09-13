@@ -356,7 +356,8 @@ export default function StudentDashboard() {
             ))
           ) : (selectedBatchId ? tests.filter(t => t.batch_ids && t.batch_ids.includes(selectedBatchId)) : tests).length > 0 ? (
             (selectedBatchId ? tests.filter(t => t.batch_ids && t.batch_ids.includes(selectedBatchId)) : tests).map((test) => {
-              const isUpcoming = test.status === 'scheduled' || (test.start_time && new Date(test.start_time) > currentTime);
+              const isUpcoming = test.status === 'scheduled' && test.start_time && new Date(test.start_time) > currentTime;
+              if (test.status === 'scheduled' && (!test.start_time || new Date(test.start_time) <= currentTime)) { test.status = 'active'; }
               return (
               <motion.div variants={itemVariants} key={test.id}>
                 <Card p="lg" interactive className="flex flex-col h-full border-l-4 border-l-transparent hover:border-l-brand">

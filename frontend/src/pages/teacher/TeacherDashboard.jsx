@@ -55,7 +55,7 @@ export default function TeacherDashboard() {
     enabled: !!user,
   });
 
-  const activeTests = tests.filter(t => t.status === 'active');
+  const activeTests = tests.filter(t => ['active', 'scheduled'].includes(t.status));
   const isLoading = statsLoading || testsLoading || notifsLoading;
 
   if (isLoading) {
