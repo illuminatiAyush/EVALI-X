@@ -12,7 +12,9 @@ export default function AuthPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('student');
+  const [name, setName] = useState('');
   const [error, setError] = useState('');
+  const [showDemoCreds, setShowDemoCreds] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const { login, signup } = useAuth();
@@ -154,6 +156,15 @@ export default function AuthPage() {
                     exit={{ opacity: 0, height: 0 }}
                     className="space-y-3 overflow-hidden"
                   >
+                    <Input 
+                      label="Full Name"
+                      type="text" 
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="John Doe"
+                      size="lg"
+                    />
                     <label className="block text-[10px] font-mono font-bold text-text-muted mb-2 uppercase tracking-widest">Select Your Role</label>
                     <div className="grid grid-cols-2 gap-4">
                       <button
@@ -196,6 +207,51 @@ export default function AuthPage() {
               <ArrowRight size={18} className="ml-2" />
             </Button>
           </form>
+
+          {/* Demo Credentials */}
+          {isLogin && (
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={() => setShowDemoCreds(!showDemoCreds)}
+                className="w-full py-3 px-4 rounded-xl border-2 border-dashed border-brand/30 text-brand font-display font-bold text-sm hover:bg-brand/5 hover:border-brand/50 transition-all flex items-center justify-center gap-2"
+              >
+                <Zap size={16} />
+                {showDemoCreds ? 'Hide Demo Credentials' : 'Use Demo Credentials'}
+              </button>
+              <AnimatePresence>
+                {showDemoCreds && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="grid grid-cols-2 gap-3 mt-3">
+                      <button
+                        type="button"
+                        onClick={() => { setEmail('admin@evalix.ai'); setPassword('123456'); setShowDemoCreds(false); }}
+                        className="py-3 px-4 rounded-xl border-2 border-border bg-surface font-display font-bold text-sm transition-all hover:border-brand hover:bg-brand/5 flex flex-col items-center gap-1"
+                      >
+                        <ShieldCheck size={20} className="text-brand" />
+                        <span className="text-text">Teacher</span>
+                        <span className="text-[10px] text-text-muted font-mono">admin@evalix.ai</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setEmail('student@evalix.ai'); setPassword('123456'); setShowDemoCreds(false); }}
+                        className="py-3 px-4 rounded-xl border-2 border-border bg-surface font-display font-bold text-sm transition-all hover:border-brand hover:bg-brand/5 flex flex-col items-center gap-1"
+                      >
+                        <GraduationCap size={20} className="text-brand" />
+                        <span className="text-text">Student</span>
+                        <span className="text-[10px] text-text-muted font-mono">student@evalix.ai</span>
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
 
           <div className="pt-8 mt-8 border-t border-border text-center">
             <p className="text-text-muted font-medium font-sans text-sm">

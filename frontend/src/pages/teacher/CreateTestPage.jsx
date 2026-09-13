@@ -106,8 +106,20 @@ export default function CreateTestPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!file) {
-      toast.error('Awaiting PDF initialization sequence.');
-      setError('Awaiting PDF initialization sequence.');
+      toast.error('Please upload a PDF file first.');
+      setError('Please upload a PDF file first.');
+      return;
+    }
+
+    if (selectedBatches.length === 0 && batches.length > 0) {
+      toast.error('Please select at least one class to assign the test.');
+      setError('Please select at least one class to assign the test.');
+      return;
+    }
+
+    if (formData.types.length === 0) {
+      toast.error('Please select at least one question type.');
+      setError('Please select at least one question type.');
       return;
     }
 
@@ -316,7 +328,10 @@ export default function CreateTestPage() {
 
               {/* Assign to Batches */}
               <div>
-                <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-4">Designate Academic Sections</label>
+                <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Designate Academic Sections <span className="text-danger">*</span></label>
+                {selectedBatches.length === 0 && batches.length > 0 && (
+                  <p className="text-xs text-amber-500 mb-3 flex items-center gap-1"><AlertCircle size={12} /> Select at least one class</p>
+                )}
                 <div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
                   {batches.length === 0 ? (
                     <p className="text-sm text-text-muted font-sans italic">No classes found.</p>
@@ -344,7 +359,7 @@ export default function CreateTestPage() {
 
               <Button
                 type="submit"
-                disabled={!file || loading}
+                disabled={!file || loading || (selectedBatches.length === 0 && batches.length > 0)}
                 variant="primary"
                 className="w-full py-5 text-base shadow-indigo-glow"
               >
