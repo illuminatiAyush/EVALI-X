@@ -904,7 +904,7 @@ export const apiService = Object.fromEntries(
     if (typeof fn === 'function') {
       // Background AI generation requires much more time than normal requests
       const isLongTask = ['generateTest', 'getGenerationStatus'].includes(key);
-      const timeoutMs = isLongTask ? 60000 : 15000;
+      const timeoutMs = isLongTask ? 180000 : 15000;
       
       return [
         key,
