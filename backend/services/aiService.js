@@ -48,7 +48,7 @@ async function callAI(systemPrompt, userPrompt, options = {}) {
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
           ],
-          model: 'llama-3.3-70b-versatile',
+          model: 'llama3-70b-8192',
           temperature: options.temperature || 0.3,
           max_tokens: options.max_tokens || 4000,
           response_format: { type: 'json_object' },
@@ -61,7 +61,7 @@ async function callAI(systemPrompt, userPrompt, options = {}) {
         
         // Track token usage
         if (data.usage?.total_tokens && options.userId) {
-          await trackTokenUsage(options.userId, data.usage.total_tokens, 'llama-3.3-70b-versatile');
+          await trackTokenUsage(options.userId, data.usage.total_tokens, 'llama3-70b-8192');
         }
 
         const content = data.choices?.[0]?.message?.content;
@@ -84,7 +84,7 @@ async function callAI(systemPrompt, userPrompt, options = {}) {
               { role: 'system', content: systemPrompt },
               { role: 'user', content: userPrompt },
             ],
-            model: 'llama-3.1-8b-instant',
+            model: 'llama3-8b-8192',
             temperature: options.temperature || 0.3,
             max_tokens: options.max_tokens || 4000,
             response_format: { type: 'json_object' },
@@ -96,7 +96,7 @@ async function callAI(systemPrompt, userPrompt, options = {}) {
           const data8b = await res8b.json();
 
           if (data8b.usage?.total_tokens && options.userId) {
-            await trackTokenUsage(options.userId, data8b.usage.total_tokens, 'llama-3.1-8b-instant');
+            await trackTokenUsage(options.userId, data8b.usage.total_tokens, 'llama3-8b-8192');
           }
 
           const content8b = data8b.choices?.[0]?.message?.content;
@@ -115,7 +115,7 @@ async function callAI(systemPrompt, userPrompt, options = {}) {
   // 2. Fallback to Gemini 2.0 Flash
   if (GEMINI_API_KEY) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`;
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -185,7 +185,7 @@ async function generateTestQuestions(documentText, difficulty, numQuestions, use
     }
 
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`;
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -240,7 +240,7 @@ async function generateTestQuestions(documentText, difficulty, numQuestions, use
       
       // Track token usage
       if (data.usageMetadata?.totalTokenCount && userId) {
-        await trackTokenUsage(userId, data.usageMetadata.totalTokenCount, 'gemini-2.0-flash-vision');
+        await trackTokenUsage(userId, data.usageMetadata.totalTokenCount, 'gemini-3.6-flash-vision');
       }
 
     } catch (err) {
@@ -349,3 +349,4 @@ module.exports = {
   generateTestQuestions,
   analyzeTestResults,
 };
+
