@@ -68,20 +68,49 @@ async function attemptRoutes(fastify, options) {
           test = dbTest;
         }
 
-        // ━━━ STRICT STATUS CHECK: Only 'active' is allowed ━━━
-        if (test.status !== 'active') {
+        // ━━━ STATUS & SCHEDULE CHECK ━━━
+        const now = new Date();
+
+        if (test.status === 'scheduled') {
+          // If scheduled start_time is in the future, student cannot start yet
+          if (test.start_time && new Date(test.start_time) > now) {
+            logger.warn({ testId, startTime: test.start_time }, '[ATTEMPT] Rejected: scheduled start_time has not arrived');
+            return reply.status(403).send({
+              success: false,
+              error: `Assessment has not started yet. Scheduled start time is ${new Date(test.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`,
+            });
+          }
+
+          // Scheduled start_time has arrived! Auto-activate the test in the database
+          test.status = 'active';
+          supabaseAdmin
+            .from('tests')
+            .update({ status: 'active' })
+            .eq('id', testId)
+            .then(({ error: updateErr }) => {
+              if (updateErr) logger.error({ updateErr, testId }, '[ATTEMPT] Failed to auto-activate scheduled test');
+              else logger.info({ testId }, '[ATTEMPT] Auto-activated scheduled test');
+            });
+
+          if (redis) {
+            redis.del(cacheKey).catch(() => {});
+          }
+        } else if (test.status !== 'active') {
           logger.warn({ testId, status: test.status }, '[ATTEMPT] Rejected: assessment not active');
           return reply.status(403).send({
             success: false,
-            error: test.status === 'scheduled'
-              ? 'Assessment has not started yet. Please wait for your instructor.'
+            error: test.status === 'ended'
+              ? 'This assessment has ended.'
               : 'This assessment is not currently available.',
           });
         }
 
         // ━━━ BACKEND TIMER AUTHORITY: Server-side time validation ━━━
-        const now = new Date();
         if (test.end_time && now > new Date(test.end_time)) {
+          if (test.status !== 'ended') {
+            supabaseAdmin.from('tests').update({ status: 'ended' }).eq('id', testId).then(() => {});
+            if (redis) redis.del(cacheKey).catch(() => {});
+          }
           logger.warn({ testId }, '[ATTEMPT] Rejected: assessment time window expired');
           return reply.status(403).send({
             success: false,
@@ -159,7 +188,13 @@ async function attemptRoutes(fastify, options) {
         } else {
           // ━━━ CREATE NEW ATTEMPT ━━━
           const durationMs = (test.duration_minutes || 30) * 60 * 1000;
-          const endsAt = new Date(now.getTime() + durationMs);
+          let endsAt = new Date(now.getTime() + durationMs);
+          if (test.end_time) {
+            const testEndTime = new Date(test.end_time);
+            if (testEndTime < endsAt) {
+              endsAt = testEndTime;
+            }
+          }
 
           const { data: newAttempt, error: createError } = await supabaseAdmin
             .from('attempts')

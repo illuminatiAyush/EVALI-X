@@ -636,45 +636,6 @@ const _apiService = {
     return json.data;
   },
 
-  async getStudentDashboardStats() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Unauthorized');
-
-    const { data: attempts, error } = await supabase
-      .from('attempts')
-      .select('id, status, violation_count, results (score, max_score)')
-      .eq('student_id', user.id)
-      .in('status', ['submitted', 'evaluated', 'forced_end']);
-      
-    if (error) {
-      console.error('Failed to fetch student dashboard stats:', error);
-      return { totalAttempts: 0, avgAccuracy: 0, learningPoints: 0 };
-    }
-
-    if (!attempts || attempts.length === 0) {
-      return { totalAttempts: 0, avgAccuracy: 0, learningPoints: 0 };
-    }
-
-    let totalScore = 0;
-    let totalMaxScore = 0;
-
-    attempts.forEach(a => {
-      if (a.results && a.results.length > 0) {
-        totalScore += (a.results[0].score || 0);
-        totalMaxScore += (a.results[0].max_score || 0);
-      }
-    });
-
-    const avgAccuracy = totalMaxScore > 0 ? Math.round((totalScore / totalMaxScore) * 100) : 0;
-    const learningPoints = totalScore * 10; // simple formula
-
-    return {
-      totalAttempts: attempts.length,
-      avgAccuracy,
-      learningPoints
-    };
-  },
-
   async getBatchAssessments(batchId) {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('Unauthorized');
@@ -727,7 +688,7 @@ const _apiService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Unauthorized');
 
-    // Direct Supabase call — no backend hop, no cold-boot timeout
+    // Direct Supabase call ï¿½ no backend hop, no cold-boot timeout
     const { data, error } = await supabase
       .from('notifications')
       .select('*')
@@ -743,7 +704,7 @@ const _apiService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Unauthorized');
 
-    // Direct Supabase call — no backend hop, no cold-boot timeout
+    // Direct Supabase call ï¿½ no backend hop, no cold-boot timeout
     let query = supabase
       .from('notifications')
       .update({ is_read: true })
