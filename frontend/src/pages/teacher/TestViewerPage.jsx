@@ -94,7 +94,7 @@ export default function TestViewerPage() {
     try {
       // Use a timeout to prevent infinite hanging
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      const timeoutId = setTimeout(() => controller.abort(), 180000);
 
       await apiService.updateTest(id, {
         duration_minutes: duration,
