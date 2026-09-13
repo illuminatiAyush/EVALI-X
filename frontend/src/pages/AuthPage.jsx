@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
-import { BrainCircuit, ShieldCheck, GraduationCap, ArrowRight } from 'lucide-react';
+import { BrainCircuit, ShieldCheck, GraduationCap, ArrowRight, Zap } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Card from '../components/ui/Card';
